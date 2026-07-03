@@ -4,14 +4,14 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src",
     "noEmit": false,
     "paths": {
       "@/*": ["./src/*"],
       "@pm/types": ["../../packages/types/src/index.ts"],
       "@pm/utils": ["../../packages/utils/src/index.ts"],
-      "@pm/config/*": ["../../packages/config/src/*"]
-    }
+      "@pm/config/*": ["../../packages/config/src/*.ts"]
+    },
+    "rootDir": "../.."
   },
   "include": ["src/**/*.ts"]
 }

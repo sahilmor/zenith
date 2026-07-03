@@ -15,12 +15,11 @@
     "noEmit": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
     "paths": {
-      "@pm/types": ["packages/types/src/index.ts"],
-      "@pm/utils": ["packages/utils/src/index.ts"],
-      "@pm/config/*": ["packages/config/src/*"],
-      "@pm/ui": ["packages/ui/src/index.ts"]
+      "@pm/types": ["./packages/types/src/index.ts"],
+      "@pm/utils": ["./packages/utils/src/index.ts"],
+      "@pm/config/*": ["./packages/config/src/*.ts"],
+      "@pm/ui": ["./packages/ui/src/index.ts"]
     }
   }
 }

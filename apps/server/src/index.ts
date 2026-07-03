@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-import { createApp } from '@/app';
-import { env } from '@/config/env';
+import { createApp } from './app.js';
+import { env } from './config/env.js';
 
 const app = createApp();
 const httpServer = createServer(app);

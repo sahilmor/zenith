@@ -2,12 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
       "@/*": ["./src/*"],
       "@pm/types": ["../../packages/types/src/index.ts"],
       "@pm/utils": ["../../packages/utils/src/index.ts"],
-      "@pm/config/*": ["../../packages/config/src/*"],
+      "@pm/config/*": ["../../packages/config/src/*.ts"],
       "@pm/ui": ["../../packages/ui/src/index.ts"]
     }
   },

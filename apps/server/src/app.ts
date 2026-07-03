@@ -3,8 +3,8 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { env } from '@/config/env';
-import { healthRouter } from '@/routes/health.routes';
+import { env } from './config/env.js';
+import { healthRouter } from './routes/health.routes.js';
 
 export const createApp = (): Express => {
   const app = express();
