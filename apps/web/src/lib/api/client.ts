@@ -18,6 +18,29 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   skipAuthRefresh?: boolean;
 }
 
+const apiBaseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+
+const buildApiUrl = (path: string): string => {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${apiBaseUrl}${normalizedPath}`;
+};
+
+const parseEnvelope = async <TData>(response: Response): Promise<ApiEnvelope<TData>> => {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    const message = (await response.text()) || response.statusText || 'Request failed';
+    return {
+      success: response.ok,
+      message,
+      data: null,
+      errors: null,
+      timestamp: new Date().toISOString(),
+    };
+  }
+  return (await response.json()) as ApiEnvelope<TData>;
+};
+
 const buildHeaders = (options: RequestOptions): Headers => {
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && options.body !== undefined)
@@ -30,14 +53,14 @@ const buildHeaders = (options: RequestOptions): Headers => {
 const refreshSession = async (): Promise<boolean> => {
   const refreshToken = useAuthStore.getState().refreshToken;
   if (!refreshToken) return false;
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, {
+  const response = await fetch(buildApiUrl('/api/auth/refresh'), {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
   });
   if (!response.ok) return false;
-  const envelope = (await response.json()) as ApiEnvelope<AuthPayload>;
+  const envelope = await parseEnvelope<AuthPayload>(response);
   if (!envelope.success || !envelope.data) return false;
   useAuthStore.getState().setSession(envelope.data);
   return true;
@@ -56,14 +79,14 @@ export const apiRequest = async <TData>(
       headers: buildHeaders(options),
     };
     if (body !== undefined) init.body = JSON.stringify(body);
-    return fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, init);
+    return fetch(buildApiUrl(path), init);
   };
 
   let response = await execute();
   if (response.status === 401 && !options.skipAuthRefresh && (await refreshSession()))
     response = await execute();
 
-  const envelope = (await response.json()) as ApiEnvelope<TData>;
+  const envelope = await parseEnvelope<TData>(response);
   if (!response.ok || !envelope.success || envelope.data === null) {
     throw new ApiError({
       message: envelope.message || 'Request failed',

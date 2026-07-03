@@ -10,9 +10,11 @@ services:
       context: .
       dockerfile: docker/server.Dockerfile
     env_file:
-      - .env.example
+      - .env
     ports:
       - '4000:4000'
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/project-management
     depends_on:
       - mongo
   web:
@@ -20,7 +22,7 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
     env_file:
-      - .env.example
+      - .env
     ports:
       - '3000:3000'
     depends_on:
