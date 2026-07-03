@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+.env
+.env.*
+!.env.example
+coverage
+.turbo
+.DS_Store
+npm-debug.log*
