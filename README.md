@@ -124,6 +124,17 @@ apps/server/src/
   utils/        API responses, errors, logger, and async controller helpers
 ```
 
+## Frontend Foundation
+
+The Next.js app includes the authenticated application shell for this phase:
+
+- `/login` and `/signup` provide responsive authentication forms backed by React Hook Form and Zod.
+- `/dashboard` is a protected dashboard shell with sidebar navigation, navbar, breadcrumbs, profile dropdown, notification placeholder, and theme toggle.
+- Providers are configured for TanStack Query, authentication state, theme preferences, and toast notifications.
+- The frontend API layer centralizes backend requests, token attachment, refresh-token retry, and normalized API errors.
+
+Product modules such as workspaces, projects, boards, tasks, comments, notifications, calendar, analytics, and team management remain intentionally out of scope for this phase.
+
 ## Docker Development
 
 ```bash

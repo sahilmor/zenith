@@ -13,7 +13,8 @@
       "@pm/utils": ["../../packages/utils/src/index.ts"],
       "@pm/config/*": ["../../packages/config/src/*.ts"],
       "@pm/ui": ["../../packages/ui/src/index.ts"]
-    }
+    },
+    "incremental": true
   },
   "include": [
     "next-env.d.ts",
