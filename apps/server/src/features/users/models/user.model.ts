@@ -40,7 +40,7 @@ userSchema.methods.comparePassword = function comparePassword(
 };
 
 export type User = InferSchemaType<typeof userSchema>;
-export type UserDocument = HydratedDocument<User> & {
+export interface UserDocument extends HydratedDocument<User> {
   comparePassword(candidatePassword: string): Promise<boolean>;
-};
+}
 export const UserModel = model<User>('User', userSchema);

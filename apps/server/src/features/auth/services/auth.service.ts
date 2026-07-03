@@ -4,8 +4,13 @@ import { UserRepository } from '../repositories/user.repository.js';
 import type { LoginInput, SignupInput } from '../validation/auth.validation.js';
 import { TokenService } from './token.service.js';
 
-type AuthResult = { user: SafeUser; accessToken: string; refreshToken: string };
-type SafeUser = {
+interface AuthResult {
+  user: SafeUser;
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface SafeUser {
   id: string;
   name: string;
   email: string;
@@ -15,7 +20,7 @@ type SafeUser = {
   provider: string;
   createdAt: Date;
   updatedAt: Date;
-};
+}
 
 export class AuthService {
   public constructor(

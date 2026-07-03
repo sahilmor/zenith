@@ -1,12 +1,12 @@
 import type { Response } from 'express';
 
-export type ApiResponse<TData = unknown> = {
+export interface ApiResponse<TData = unknown> {
   success: boolean;
   message: string;
   data: TData | null;
   errors: unknown[] | null;
   timestamp: string;
-};
+}
 
 const createResponse = <TData>(
   success: boolean,

@@ -3,7 +3,7 @@ import { env } from '../../../config/env.js';
 import type { JwtPayload } from '../../../types/auth.js';
 
 const signToken = (payload: JwtPayload, secret: string, expiresIn: string): string =>
-  jwt.sign(payload, secret, { expiresIn } satisfies SignOptions);
+  jwt.sign(payload, secret, { expiresIn: expiresIn as NonNullable<SignOptions['expiresIn']> });
 
 export class TokenService {
   public generateAccessToken(payload: JwtPayload): string {

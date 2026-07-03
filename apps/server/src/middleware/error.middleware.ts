@@ -11,7 +11,8 @@ export const notFoundHandler: RequestHandler = (request, response) => {
   sendError(response, 404, `Route ${request.method} ${request.originalUrl} not found`);
 };
 
-export const globalErrorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+export const globalErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
+  void next;
   if (error instanceof ZodError) {
     sendError(response, 400, 'Validation failed', error.errors);
     return;

@@ -1,12 +1,15 @@
 import type { RequestHandler } from 'express';
 
-type Bucket = { count: number; resetAt: number };
+interface Bucket {
+  count: number;
+  resetAt: number;
+}
 const buckets = new Map<string, Bucket>();
 
 export const rateLimit =
   (maxRequests: number, windowMs: number): RequestHandler =>
   (request, response, next) => {
-    const key = request.ip;
+    const key = request.ip ?? request.socket.remoteAddress ?? 'unknown';
     const now = Date.now();
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
