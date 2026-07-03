@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import { hashPassword, verifyPassword } from '../../../utils/password.js';
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
 import type { AuthProvider, UserRole } from '../../../types/auth.js';
 
@@ -24,19 +24,19 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
-userSchema.pre('save', async function hashPassword(next) {
+userSchema.pre('save', async function hashUserPassword(next) {
   if (!this.isModified('password')) {
     next();
     return;
   }
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await hashPassword(this.password);
   next();
 });
 
 userSchema.methods.comparePassword = function comparePassword(
   candidatePassword: string,
 ): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password as string);
+  return verifyPassword(candidatePassword, this.password as string);
 };
 
 export type User = InferSchemaType<typeof userSchema>;

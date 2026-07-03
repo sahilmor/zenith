@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import { env } from './config/env.js';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware.js';
 import { preventHttpParameterPollution, rateLimit } from './middleware/security.middleware.js';
+import { healthRouter } from './routes/health.routes.js';
 import { apiRouter } from './routes/index.js';
 
 export const createApp = (): Express => {
@@ -20,7 +21,7 @@ export const createApp = (): Express => {
   app.use(preventHttpParameterPollution);
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   app.use('/api', apiRouter);
-  app.use('/health', apiRouter);
+  app.use('/health', healthRouter);
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
