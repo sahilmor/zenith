@@ -1,21 +1,23 @@
 'use client';
 
-import { Moon, Sun } from 'lucide-react';
+import { Laptop, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useThemeStore } from '@/stores/theme-store';
 
 export function ThemeToggle() {
   const { preference, setPreference } = useThemeStore();
-  const isDark = preference !== 'light';
+  const nextPreference =
+    preference === 'dark' ? 'light' : preference === 'light' ? 'system' : 'dark';
+  const Icon = preference === 'dark' ? Sun : preference === 'light' ? Laptop : Moon;
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon"
-      onClick={() => setPreference(isDark ? 'light' : 'dark')}
-      aria-label="Toggle theme"
+      onClick={() => setPreference(nextPreference)}
+      aria-label={`Switch theme from ${preference} to ${nextPreference}`}
     >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      <Icon className="size-4" />
     </Button>
   );
 }

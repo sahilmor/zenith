@@ -23,8 +23,8 @@ export function AuthShell({
               Plan work with the calm precision of a modern product team.
             </h1>
             <p className="mt-6 max-w-lg text-base leading-7 text-slate-400">
-              A clean foundation for teams, projects, boards, and delivery workflows. Authentication
-              is ready now; product modules arrive in future phases.
+              A clean workspace for teams, projects, boards, task collaboration, and delivery
+              workflows.
             </p>
           </div>
           <p className="text-sm text-slate-500">Inspired by Linear, Notion, Jira, and Vercel.</p>

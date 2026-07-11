@@ -3,6 +3,24 @@
 
 :root {
   color-scheme: dark;
+  --app-bg: #020617;
+  --app-panel: #0f172a;
+  --app-panel-soft: rgba(255, 255, 255, 0.04);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-text: #f8fafc;
+  --app-muted: #94a3b8;
+  --app-subtle: #64748b;
+}
+
+:root.light {
+  color-scheme: light;
+  --app-bg: #f8fafc;
+  --app-panel: #ffffff;
+  --app-panel-soft: rgba(15, 23, 42, 0.04);
+  --app-border: rgba(15, 23, 42, 0.12);
+  --app-text: #0f172a;
+  --app-muted: #475569;
+  --app-subtle: #64748b;
 }
 
 * {
@@ -11,13 +29,14 @@
 
 html {
   min-height: 100%;
-  background: #020617;
+  background: var(--app-bg);
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  background: #020617;
+  background: var(--app-bg);
+  color: var(--app-text);
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -25,4 +44,72 @@ button,
 a,
 input {
   -webkit-tap-highlight-color: transparent;
+}
+
+:root.light .bg-slate-950,
+:root.light .bg-slate-950\/80,
+:root.light .bg-slate-950\/90,
+:root.light .bg-slate-950\/95,
+:root.light .bg-slate-950\/70 {
+  background-color: var(--app-panel);
+}
+
+:root.light .bg-black\/10 {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+:root.light .bg-black\/70 {
+  background-color: rgba(15, 23, 42, 0.35);
+}
+
+:root.light .bg-white\/\[0\.03\],
+:root.light .bg-white\/\[0\.04\],
+:root.light .bg-white\/\[0\.05\],
+:root.light .bg-white\/5,
+:root.light .bg-white\/10 {
+  background-color: var(--app-panel-soft);
+}
+
+:root.light .hover\:bg-white\/10:hover,
+:root.light .hover\:bg-white\/15:hover,
+:root.light .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: rgba(15, 23, 42, 0.08);
+}
+
+:root.light .border-white\/5,
+:root.light .border-white\/10,
+:root.light .border-white\/20,
+:root.light .border-white\/30 {
+  border-color: var(--app-border);
+}
+
+:root.light .text-white,
+:root.light .text-slate-200,
+:root.light .text-slate-300 {
+  color: var(--app-text);
+}
+
+:root.light .text-slate-400 {
+  color: var(--app-muted);
+}
+
+:root.light .text-slate-500 {
+  color: var(--app-subtle);
+}
+
+:root.light .placeholder\:text-slate-500::placeholder {
+  color: #94a3b8;
+}
+
+:root.light .shadow-black\/15,
+:root.light .shadow-black\/20,
+:root.light .shadow-black\/30,
+:root.light .shadow-black\/40 {
+  --tw-shadow-color: rgba(15, 23, 42, 0.12);
+}
+
+:root.light input,
+:root.light textarea,
+:root.light select {
+  color: var(--app-text);
 }

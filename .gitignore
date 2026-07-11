@@ -1,10 +1,12 @@
 node_modules
 .next
+.next-dev
 dist
 .env
 .env.*
 !.env.example
 coverage
+uploads
 .turbo
 .DS_Store
 npm-debug.log*

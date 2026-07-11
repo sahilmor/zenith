@@ -1,4 +1,7 @@
 import type { RequestHandler } from 'express';
+import type { CorsOptions } from 'cors';
+import { env } from '../config/env.js';
+import { ForbiddenError } from '../utils/app-error.js';
 
 interface Bucket {
   count: number;
@@ -36,4 +39,24 @@ export const preventHttpParameterPollution: RequestHandler = (request, _response
     if (Array.isArray(value)) request.query[key] = value.at(-1);
   }
   next();
+};
+
+export const allowedOrigins = new Set(
+  (env.CORS_ORIGINS ?? env.CLIENT_URL)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+export const isAllowedOrigin = (origin?: string): boolean => !origin || allowedOrigins.has(origin);
+
+export const corsOptions: CorsOptions = {
+  credentials: true,
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new ForbiddenError('Origin is not allowed by CORS'));
+  },
 };

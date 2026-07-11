@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,6 +15,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -27,6 +27,11 @@ export class UnauthorizedError extends AppError {
     super(message, 401);
   }
 }
+export class ForbiddenError extends AppError {
+  public constructor(message = 'Forbidden') {
+    super(message, 403);
+  }
+}
 export class ConflictError extends AppError {
   public constructor(message = 'Conflict') {
     super(message, 409);

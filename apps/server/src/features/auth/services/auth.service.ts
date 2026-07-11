@@ -1,7 +1,17 @@
-import { ConflictError, UnauthorizedError } from '../../../utils/app-error.js';
+import crypto from 'node:crypto';
+import { env } from '../../../config/env.js';
+import { EmailService } from '../../../services/email.service.js';
+import { BadRequestError, ConflictError, UnauthorizedError } from '../../../utils/app-error.js';
 import type { UserDocument } from '../../users/models/user.model.js';
 import { UserRepository } from '../repositories/user.repository.js';
-import type { LoginInput, SignupInput } from '../validation/auth.validation.js';
+import type {
+  ForgotPasswordInput,
+  LoginInput,
+  ResendVerificationInput,
+  ResetPasswordInput,
+  SignupInput,
+  VerifyEmailInput,
+} from '../validation/auth.validation.js';
 import { TokenService } from './token.service.js';
 
 interface AuthResult {
@@ -26,12 +36,14 @@ export class AuthService {
   public constructor(
     private readonly users = new UserRepository(),
     private readonly tokens = new TokenService(),
+    private readonly email = new EmailService(),
   ) {}
 
   public async signup(input: SignupInput): Promise<AuthResult> {
     const existingUser = await this.users.findByEmail(input.email);
     if (existingUser) throw new ConflictError('Email is already registered');
     const user = await this.users.create(input);
+    await this.issueVerificationEmail(user);
     return this.createAuthResult(user);
   }
 
@@ -41,6 +53,75 @@ export class AuthService {
     const passwordMatches = await user.comparePassword(input.password);
     if (!passwordMatches) throw new UnauthorizedError('Invalid email or password');
     return this.createAuthResult(user);
+  }
+
+  public async forgotPassword(input: ForgotPasswordInput): Promise<void> {
+    const user = await this.users.findByEmail(input.email);
+    if (!user) return;
+    const { hashedToken, plainToken } = this.createSecureToken();
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await this.users.save(user);
+    await this.sendIfConfigured(() =>
+      this.email.sendPasswordReset({
+        to: user.email,
+        name: user.name,
+        url: `${env.APP_URL}/reset-password?token=${plainToken}`,
+      }),
+    );
+  }
+
+  public async resetPassword(input: ResetPasswordInput): Promise<void> {
+    const user = await this.users.findByPasswordResetToken(this.hashToken(input.token));
+    if (!user) throw new BadRequestError('Password reset link is invalid or expired');
+    user.password = input.password;
+    user.passwordResetToken = null;
+    user.passwordResetExpiresAt = null;
+    await this.users.save(user);
+  }
+
+  public async verifyEmail(input: VerifyEmailInput): Promise<AuthResult> {
+    const user = await this.users.findByVerificationToken(this.hashToken(input.token));
+    if (!user) throw new BadRequestError('Email verification link is invalid or expired');
+    user.isVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpiresAt = null;
+    await this.users.save(user);
+    return this.createAuthResult(user);
+  }
+
+  public async resendVerification(input: ResendVerificationInput): Promise<void> {
+    const user = await this.users.findByEmail(input.email);
+    if (!user || user.isVerified) return;
+    await this.issueVerificationEmail(user);
+  }
+
+  private async issueVerificationEmail(user: UserDocument): Promise<void> {
+    const { hashedToken, plainToken } = this.createSecureToken();
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await this.users.save(user);
+    await this.sendIfConfigured(() =>
+      this.email.sendEmailVerification({
+        to: user.email,
+        name: user.name,
+        url: `${env.APP_URL}/verify-email?token=${plainToken}`,
+      }),
+    );
+  }
+
+  private createSecureToken(): { plainToken: string; hashedToken: string } {
+    const plainToken = crypto.randomBytes(32).toString('hex');
+    return { plainToken, hashedToken: this.hashToken(plainToken) };
+  }
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private async sendIfConfigured(send: () => Promise<void>): Promise<void> {
+    if (!this.email.isConfigured()) return;
+    await send();
   }
 
   public async refresh(refreshToken: string): Promise<AuthResult> {

@@ -15,6 +15,10 @@ const userSchema = new Schema(
       index: true,
     },
     isVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String, default: null, select: false },
+    emailVerificationExpiresAt: { type: Date, default: null, select: false },
+    passwordResetToken: { type: String, default: null, select: false },
+    passwordResetExpiresAt: { type: Date, default: null, select: false },
     provider: {
       type: String,
       enum: ['local', 'google', 'github'] satisfies AuthProvider[],

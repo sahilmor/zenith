@@ -6,7 +6,15 @@ import { apiRequest } from '@/lib/api/client';
 import type { AuthPayload } from '@/lib/api/types';
 import { useAuthStore } from '@/stores/auth-store';
 
-const publicRoutes = new Set(['/login', '/signup', '/unauthorized']);
+const publicRoutes = new Set([
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/unauthorized',
+  '/invitations/accept',
+]);
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();

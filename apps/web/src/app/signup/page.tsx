@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Create account"
-      description="Start with authentication now. Team workspaces and project modules arrive in upcoming phases."
+      description="Create your account, verify your email, and start managing workspace projects."
       footer={
         <span>
           Already have an account?{' '}

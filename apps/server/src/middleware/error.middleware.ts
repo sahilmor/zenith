@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
-import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { ZodError } from 'zod';
 import { env } from '../config/env.js';
@@ -7,11 +7,13 @@ import { AppError } from '../utils/app-error.js';
 import { sendError } from '../utils/api-response.js';
 import { logger } from '../utils/logger.js';
 
+const { JsonWebTokenError, TokenExpiredError } = jwt;
+
 export const notFoundHandler: RequestHandler = (request, response) => {
   sendError(response, 404, `Route ${request.method} ${request.originalUrl} not found`);
 };
 
-export const globalErrorHandler: ErrorRequestHandler = (error, _request, response, next) => {
+export const globalErrorHandler: ErrorRequestHandler = (error, request, response, next) => {
   void next;
   if (error instanceof ZodError) {
     sendError(response, 400, 'Validation failed', error.errors);
@@ -44,6 +46,7 @@ export const globalErrorHandler: ErrorRequestHandler = (error, _request, respons
   }
 
   logger.error('Unhandled application error', {
+    requestId: request.requestId,
     error: error instanceof Error ? error.message : String(error),
   });
   sendError(

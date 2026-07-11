@@ -15,4 +15,26 @@ export class UserRepository {
   public async findById(id: string): Promise<UserDocument | null> {
     return UserModel.findById(id).exec() as Promise<UserDocument | null>;
   }
+
+  public async findByVerificationToken(token: string): Promise<UserDocument | null> {
+    return UserModel.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpiresAt: { $gt: new Date() },
+    })
+      .select('+emailVerificationToken +emailVerificationExpiresAt')
+      .exec() as Promise<UserDocument | null>;
+  }
+
+  public async findByPasswordResetToken(token: string): Promise<UserDocument | null> {
+    return UserModel.findOne({
+      passwordResetToken: token,
+      passwordResetExpiresAt: { $gt: new Date() },
+    })
+      .select('+password +passwordResetToken +passwordResetExpiresAt')
+      .exec() as Promise<UserDocument | null>;
+  }
+
+  public async save(user: UserDocument): Promise<UserDocument> {
+    return user.save();
+  }
 }
