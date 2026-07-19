@@ -4,10 +4,31 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createApp } from '../../../app.js';
+import { env } from '../../../config/env.js';
+import type { EmailSender } from '../../../services/email.service.js';
 import { UserModel } from '../../users/models/user.model.js';
+import { AuthService } from './auth.service.js';
 
 const hashToken = (token: string): string =>
   crypto.createHash('sha256').update(token).digest('hex');
+
+class UnconfiguredEmailService implements EmailSender {
+  public async sendWorkspaceInvitation(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  public async sendEmailVerification(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  public async sendPasswordReset(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  public isConfigured(): boolean {
+    return false;
+  }
+}
 
 describe('Authentication flows', () => {
   let mongo: MongoMemoryServer;
@@ -87,6 +108,25 @@ describe('Authentication flows', () => {
       .post('/api/auth/login')
       .send({ email: 'ada@example.com', password: 'NewPassword1' })
       .expect(200);
+  });
+
+  it('reports missing email configuration for password reset in development', async () => {
+    const previousNodeEnv = env.NODE_ENV;
+    env.NODE_ENV = 'development';
+    try {
+      await UserModel.create({
+        name: 'Ada',
+        email: 'ada@example.com',
+        password: 'Password1',
+      });
+      const service = new AuthService(undefined, undefined, new UnconfiguredEmailService());
+
+      await expect(service.forgotPassword({ email: 'ada@example.com' })).rejects.toThrow(
+        'Email service is not configured',
+      );
+    } finally {
+      env.NODE_ENV = previousNodeEnv;
+    }
   });
 
   it('verifies email with a valid token', async () => {

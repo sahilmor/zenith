@@ -7,9 +7,18 @@ import { IntakeFormModel } from '../../customization/models/intake-form.model.js
 import { TaskTypeModel } from '../../customization/models/task-type.model.js';
 import { TemplateModel } from '../../customization/models/template.model.js';
 import { WorkflowModel } from '../../customization/models/workflow.model.js';
+import {
+  CrmAccountModel,
+  CrmContactModel,
+  CrmDealModel,
+  CrmLeadModel,
+} from '../../crm/models/crm.model.js';
+import { DocumentPageModel } from '../../documents/models/document-page.model.js';
+import { DocumentSpaceModel } from '../../documents/models/document-space.model.js';
 import { ApiKeyModel } from '../../ops/models/api-key.model.js';
 import { WebhookEndpointModel } from '../../ops/models/webhook-endpoint.model.js';
 import { ProjectModel } from '../../projects/models/project.model.js';
+import { ResourceProfileModel } from '../../resources/models/resource.model.js';
 import { GoalModel } from '../../strategic/models/goal.model.js';
 import { InitiativeModel } from '../../strategic/models/initiative.model.js';
 import { PortfolioModel } from '../../strategic/models/portfolio.model.js';
@@ -36,6 +45,13 @@ export class UsageService {
       workflows,
       activeForms,
       templates,
+      documentSpaces,
+      documentPages,
+      resourceProfiles,
+      crmAccounts,
+      crmContacts,
+      crmLeads,
+      crmDeals,
     ] = await Promise.all([
       WorkspaceMemberModel.countDocuments({ workspaceId, status: 'active' }),
       ProjectModel.countDocuments({ workspaceId, status: 'active' }),
@@ -65,6 +81,13 @@ export class UsageService {
       WorkflowModel.countDocuments({ workspaceId, archived: false }),
       IntakeFormModel.countDocuments({ workspaceId, active: true }),
       TemplateModel.countDocuments({ workspaceId, archived: false }),
+      DocumentSpaceModel.countDocuments({ workspaceId, archived: false }),
+      DocumentPageModel.countDocuments({ workspaceId, status: { $ne: 'deleted' } }),
+      ResourceProfileModel.countDocuments({ workspaceId, active: true }),
+      CrmAccountModel.countDocuments({ workspaceId, archived: false }),
+      CrmContactModel.countDocuments({ workspaceId, archived: false }),
+      CrmLeadModel.countDocuments({ workspaceId, archived: false }),
+      CrmDealModel.countDocuments({ workspaceId, archived: false }),
     ]);
 
     return {
@@ -86,6 +109,13 @@ export class UsageService {
       workflows,
       activeForms,
       templates,
+      documentSpaces,
+      documentPages,
+      resourceProfiles,
+      crmAccounts,
+      crmContacts,
+      crmLeads,
+      crmDeals,
     };
   }
 }

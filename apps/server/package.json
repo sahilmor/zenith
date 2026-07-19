@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json --noEmit && tsup src/index.ts --format esm --dts --clean",
     "start": "node dist/index.js",
     "lint": "eslint .",
+    "email:verify": "tsx scripts/verify-smtp.ts",
     "test": "vitest run --hookTimeout 60000 --testTimeout 60000 --fileParallelism=false",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

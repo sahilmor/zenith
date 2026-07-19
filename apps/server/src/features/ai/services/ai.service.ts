@@ -13,6 +13,7 @@ import { Types } from 'mongoose';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import { BoardRepository } from '../../boards/repositories/board.repository.js';
 import { ProjectRepository } from '../../projects/repositories/project.repository.js';
+import { searchService } from '../../search/services/search.service.js';
 import { TaskService } from '../../tasks/services/task.service.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
@@ -172,7 +173,26 @@ export class AiService {
       direction: 'desc',
       ...filters,
     });
-    return { query: input.query, filters, tasks: taskList.items };
+    const universal = await searchService.search(userId, {
+      workspaceId: input.workspaceId,
+      q: input.query,
+      sort: 'relevance',
+      page: 1,
+      limit: 10,
+    });
+    const citations = await searchService.retrieveForAi({
+      workspaceId,
+      userId,
+      query: input.query,
+      limit: 5,
+    });
+    return {
+      query: input.query,
+      filters,
+      tasks: taskList.items,
+      results: universal.results,
+      citations,
+    };
   }
 
   public async listPrompts(

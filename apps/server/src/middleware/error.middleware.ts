@@ -48,6 +48,7 @@ export const globalErrorHandler: ErrorRequestHandler = (error, request, response
   logger.error('Unhandled application error', {
     requestId: request.requestId,
     error: error instanceof Error ? error.message : String(error),
+    ...(env.NODE_ENV === 'production' || !(error instanceof Error) ? {} : { stack: error.stack }),
   });
   sendError(
     response,

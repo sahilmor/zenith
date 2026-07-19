@@ -181,11 +181,11 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-details-title"
-      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-white/10 bg-slate-950 text-white shadow-2xl shadow-black/40"
+      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl min-w-0 flex-col border-l border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-text)] shadow-2xl shadow-black/30"
     >
-      <header className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Task</p>
+      <header className="flex min-w-0 items-center justify-between gap-3 border-b border-[var(--app-border)] px-5 py-4">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--app-subtle)]">Task</p>
           <h2 id="task-details-title" className="mt-1 text-lg font-semibold">
             Details
           </h2>
@@ -194,22 +194,22 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
           <X className="size-4" />
         </Button>
       </header>
-      <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+      <div className="app-scrollbar flex-1 space-y-5 overflow-y-auto px-5 py-5">
         <Input label="Title" value={title} onChange={(event) => setTitle(event.target.value)} />
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-slate-200">Description</span>
+          <span className="text-sm font-medium text-[var(--app-text)]">Description</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            className="min-h-36 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition focus:border-white/30 focus:ring-2 focus:ring-white/10"
+            className="min-h-36 w-full resize-none rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-3 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-subtle)] focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-glow)]"
           />
         </label>
         <label className="block space-y-2">
-          <span className="text-sm font-medium text-slate-200">Priority</span>
+          <span className="text-sm font-medium text-[var(--app-text)]">Priority</span>
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value as TaskPriority)}
-            className="h-11 w-full rounded-xl border border-white/10 bg-slate-950 px-3 text-sm text-white outline-none focus:border-white/30"
+            className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -217,12 +217,12 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
             <option value="urgent">Urgent</option>
           </select>
         </label>
-        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <section className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold">Subtasks</h3>
-            <span className="text-xs text-slate-500">{subtasks.data?.length ?? 0}</span>
+            <span className="text-xs text-[var(--app-subtle)]">{subtasks.data?.length ?? 0}</span>
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex min-w-0 gap-2">
             <Input
               aria-label="Subtask title"
               placeholder="Add a subtask"
@@ -244,11 +244,11 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
             {(subtasks.data ?? []).map((subtask) => (
               <div
                 key={subtask.id}
-                className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2"
+                className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/65 px-3 py-2"
               >
                 <button
                   type="button"
-                  className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                  className="shrink-0 rounded-md p-1 text-[var(--app-muted)] hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text)]"
                   onClick={() =>
                     updateSubtask.mutate({
                       subtaskId: subtask.id,
@@ -259,7 +259,9 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
                 >
                   <Check className={subtask.completed ? 'size-4 text-emerald-300' : 'size-4'} />
                 </button>
-                <span className="flex-1 break-words text-sm text-slate-200">{subtask.title}</span>
+                <span className="min-w-0 flex-1 break-words text-sm text-[var(--app-text)]">
+                  {subtask.title}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -274,7 +276,7 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
             ))}
           </div>
         </section>
-        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <section className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
               <Tag className="size-4" />
@@ -291,12 +293,12 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
               Watch
             </Button>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex min-w-0 flex-wrap gap-2">
             {(labels.labels.data ?? []).map((label) => (
               <button
                 key={label.id}
                 type="button"
-                className="rounded-md px-2 py-1 text-xs font-medium text-white"
+                className="max-w-full truncate rounded-md px-2 py-1 text-xs font-medium text-white shadow-sm"
                 style={{ backgroundColor: label.color }}
                 onClick={() => labels.remove.mutate(label.id)}
               >
@@ -304,7 +306,7 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
               </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_6rem_auto]">
+          <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
             <Input
               aria-label="Label name"
               placeholder="Label"
@@ -328,12 +330,12 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
             </Button>
           </div>
         </section>
-        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <section className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
           <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
             <MessageSquare className="size-4" />
             Comments
           </h3>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex min-w-0 gap-2">
             <Input
               aria-label="Comment"
               placeholder="Write a comment. Use @[Name](user:id) to mention."
@@ -356,7 +358,10 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
           </div>
           <div className="mt-4 space-y-3">
             {topLevelComments.map((item) => (
-              <div key={item.id} className="rounded-lg border border-white/10 bg-slate-950/70 p-3">
+              <div
+                key={item.id}
+                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/65 p-3"
+              >
                 {editingCommentId === item.id ? (
                   <div className="space-y-2">
                     <Input
@@ -390,7 +395,7 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
-                    <p className="min-w-0 flex-1 break-words text-sm text-slate-200">
+                    <p className="min-w-0 flex-1 break-words text-sm text-[var(--app-text)]">
                       {item.content}
                     </p>
                     <div className="flex shrink-0 gap-1">
@@ -419,15 +424,15 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
                   </div>
                 )}
                 {item.mentionedUserIds.length ? (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-[var(--app-subtle)]">
                     Mentions {item.mentionedUserIds.length}
                   </p>
                 ) : null}
-                <div className="mt-3 space-y-2 pl-3">
+                <div className="mt-3 space-y-2 border-l border-[var(--app-border)] pl-3">
                   {(repliesByComment.get(item.id) ?? []).map((reply) => (
                     <div
                       key={reply.id}
-                      className="rounded-md bg-white/[0.04] px-3 py-2 text-sm text-slate-300"
+                      className="rounded-md bg-[var(--app-panel-soft)] px-3 py-2 text-sm text-[var(--app-muted)]"
                     >
                       {editingCommentId === reply.id ? (
                         <div className="space-y-2">
@@ -491,7 +496,7 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex min-w-0 gap-2">
                   <Input
                     aria-label="Reply"
                     placeholder="Reply"
@@ -516,22 +521,22 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
               </div>
             ))}
             {!comments.isLoading && topLevelComments.length === 0 ? (
-              <p className="text-sm text-slate-500">No comments yet.</p>
+              <p className="text-sm text-[var(--app-subtle)]">No comments yet.</p>
             ) : null}
             {typing.typingUsers.length > 0 ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--app-subtle)]">
                 {typing.typingUsers.map((user) => user.name).join(', ')} typing...
               </p>
             ) : null}
           </div>
         </section>
-        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <section className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
               <FileUp className="size-4" />
               Attachments
             </h3>
-            <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-medium text-white hover:bg-white/10">
+            <label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 text-sm font-medium text-[var(--app-text)] hover:border-[var(--app-accent)]">
               Upload
               <input
                 type="file"
@@ -548,13 +553,13 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
             {(attachments.data ?? []).map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2"
+                className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)]/65 px-3 py-2"
               >
                 <a
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="min-w-0 flex-1 truncate text-sm text-slate-200 hover:text-white"
+                  className="min-w-0 flex-1 truncate text-sm text-[var(--app-text)] hover:text-[var(--app-accent)]"
                 >
                   {attachment.originalName}
                 </a>
@@ -571,28 +576,28 @@ export function TaskDetailsDrawer({ task, onClose }: TaskDetailsDrawerProps) {
               </div>
             ))}
             {!attachments.isLoading && (attachments.data ?? []).length === 0 ? (
-              <p className="text-sm text-slate-500">No attachments yet.</p>
+              <p className="text-sm text-[var(--app-subtle)]">No attachments yet.</p>
             ) : null}
           </div>
         </section>
-        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+        <section className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-4">
           <h3 className="text-sm font-semibold">Activity</h3>
           <div className="mt-4 space-y-2">
             {(activity.data ?? []).map((item) => (
-              <div key={item.id} className="rounded-lg bg-slate-950/70 px-3 py-2">
-                <p className="text-sm text-slate-200">{item.action}</p>
-                <p className="mt-1 text-xs text-slate-500">
+              <div key={item.id} className="rounded-lg bg-[var(--app-bg)]/65 px-3 py-2">
+                <p className="break-words text-sm text-[var(--app-text)]">{item.action}</p>
+                <p className="mt-1 text-xs text-[var(--app-subtle)]">
                   {new Date(item.createdAt).toLocaleString()}
                 </p>
               </div>
             ))}
             {!activity.isLoading && (activity.data ?? []).length === 0 ? (
-              <p className="text-sm text-slate-500">No activity yet.</p>
+              <p className="text-sm text-[var(--app-subtle)]">No activity yet.</p>
             ) : null}
           </div>
         </section>
       </div>
-      <footer className="flex justify-between gap-3 border-t border-white/10 px-5 py-4">
+      <footer className="flex flex-wrap justify-between gap-3 border-t border-[var(--app-border)] px-5 py-4">
         <Button
           type="button"
           variant="destructive"

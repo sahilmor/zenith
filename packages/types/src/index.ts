@@ -43,7 +43,10 @@ export type BillingFeature =
   | 'custom_fields'
   | 'custom_workflows'
   | 'public_forms'
-  | 'templates';
+  | 'templates'
+  | 'documents'
+  | 'resource_planning'
+  | 'crm';
 export type BillingLimitKey =
   | 'members'
   | 'projects'
@@ -62,7 +65,14 @@ export type BillingLimitKey =
   | 'taskTypes'
   | 'workflows'
   | 'activeForms'
-  | 'templates';
+  | 'templates'
+  | 'documentSpaces'
+  | 'documentPages'
+  | 'resourceProfiles'
+  | 'crmAccounts'
+  | 'crmContacts'
+  | 'crmLeads'
+  | 'crmDeals';
 
 export type BillingLimits = Record<BillingLimitKey, number | null>;
 
@@ -136,6 +146,326 @@ export interface WorkspaceBillingSummary {
   readonly subscription: WorkspaceSubscriptionSummary;
   readonly entitlements: WorkspaceEntitlementSummary;
   readonly billingEnabled: boolean;
+}
+
+export type TimeEntryStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+export type ResourceAllocationStatus = 'planned' | 'active' | 'completed' | 'canceled';
+export type ResourceAvailabilityType = 'holiday' | 'leave' | 'training' | 'focus' | 'unavailable';
+export type ResourceWorkloadStatus = 'over_allocated' | 'balanced' | 'under_utilized';
+export type ResourceDeliveryRisk = 'low' | 'medium' | 'high';
+
+export interface ResourceSkill {
+  readonly name: string;
+  readonly level: number;
+}
+
+export interface ResourceWorkingHours {
+  readonly monday: number;
+  readonly tuesday: number;
+  readonly wednesday: number;
+  readonly thursday: number;
+  readonly friday: number;
+  readonly saturday: number;
+  readonly sunday: number;
+}
+
+export interface ResourceProfileSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly title: string | null;
+  readonly department: string | null;
+  readonly location: string | null;
+  readonly timezone: string;
+  readonly weeklyCapacityMinutes: number;
+  readonly costRate: number | null;
+  readonly billRate: number | null;
+  readonly skills: ResourceSkill[];
+  readonly competencies: string[];
+  readonly workingHours: ResourceWorkingHours;
+  readonly active: boolean;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface TimerSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly projectId: EntityId | null;
+  readonly taskId: EntityId | null;
+  readonly userId: EntityId;
+  readonly description: string | null;
+  readonly billable: boolean;
+  readonly startedAt: ISODateString;
+  readonly lastHeartbeatAt: ISODateString;
+  readonly timezone: string;
+  readonly idleSince: ISODateString | null;
+  readonly elapsedMinutes: number;
+}
+
+export interface TimeEntrySummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly projectId: EntityId | null;
+  readonly taskId: EntityId | null;
+  readonly userId: EntityId;
+  readonly description: string | null;
+  readonly minutes: number;
+  readonly billable: boolean;
+  readonly startedAt: ISODateString;
+  readonly endedAt: ISODateString;
+  readonly timezone: string;
+  readonly status: TimeEntryStatus;
+  readonly approvedBy: EntityId | null;
+  readonly approvedAt: ISODateString | null;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface TimesheetDaySummary {
+  readonly date: string;
+  readonly totalMinutes: number;
+  readonly billableMinutes: number;
+}
+
+export interface TimesheetSummary {
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly from: ISODateString | null;
+  readonly to: ISODateString | null;
+  readonly totalMinutes: number;
+  readonly billableMinutes: number;
+  readonly nonBillableMinutes: number;
+  readonly entries: TimeEntrySummary[];
+  readonly days: TimesheetDaySummary[];
+}
+
+export interface ResourceAllocationSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly projectId: EntityId;
+  readonly userId: EntityId;
+  readonly role: string | null;
+  readonly allocationPercent: number;
+  readonly startDate: ISODateString;
+  readonly endDate: ISODateString;
+  readonly status: ResourceAllocationStatus;
+  readonly notes: string | null;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface ResourceAvailabilitySummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly type: ResourceAvailabilityType;
+  readonly title: string;
+  readonly startDate: ISODateString;
+  readonly endDate: ISODateString;
+  readonly minutesUnavailable: number | null;
+  readonly notes: string | null;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface ResourceWorkloadItem {
+  readonly userId: EntityId;
+  readonly profile: ResourceProfileSummary;
+  readonly capacityMinutes: number;
+  readonly allocatedMinutes: number;
+  readonly loggedMinutes: number;
+  readonly unavailableMinutes: number;
+  readonly utilizationPercent: number;
+  readonly allocationPercent: number;
+  readonly status: ResourceWorkloadStatus;
+}
+
+export interface CapacityHeatmapDay {
+  readonly date: string;
+  readonly capacityMinutes: number;
+  readonly allocatedMinutes: number;
+  readonly utilizationPercent: number;
+}
+
+export interface ResourceWorkspaceSummary {
+  readonly workspaceId: EntityId;
+  readonly generatedAt: ISODateString;
+  readonly totalCapacityMinutes: number;
+  readonly totalAllocatedMinutes: number;
+  readonly totalLoggedMinutes: number;
+  readonly utilizationPercent: number;
+  readonly overAllocatedCount: number;
+  readonly underUtilizedCount: number;
+  readonly workload: ResourceWorkloadItem[];
+  readonly heatmap: CapacityHeatmapDay[];
+}
+
+export interface ResourceAssigneeRecommendation {
+  readonly userId: EntityId;
+  readonly allocationPercent: number;
+  readonly availableMinutes: number;
+  readonly reason: string;
+}
+
+export interface ResourceForecastSummary {
+  readonly workspaceId: EntityId;
+  readonly generatedAt: ISODateString;
+  readonly deliveryRisk: ResourceDeliveryRisk;
+  readonly remainingCapacityMinutes: number;
+  readonly projectedUtilizationPercent: number;
+  readonly recommendedAssignees: ResourceAssigneeRecommendation[];
+  readonly insights: string[];
+}
+
+export type CrmAccountStatus = 'prospect' | 'customer' | 'partner' | 'former';
+export type CrmLeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
+export type CrmDealStage =
+  'qualification' | 'discovery' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost';
+export type CrmForecastCategory = 'pipeline' | 'best_case' | 'commit' | 'closed';
+export type CrmActivityType = 'note' | 'email' | 'call' | 'meeting' | 'task' | 'follow_up';
+export type CrmHealthStatus = 'healthy' | 'watch' | 'at_risk' | 'critical';
+
+export interface CrmCustomFieldValue {
+  readonly key: string;
+  readonly value: string | number | boolean | string[] | null;
+}
+
+export interface CrmAccountSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly name: string;
+  readonly domain: string | null;
+  readonly website: string | null;
+  readonly industry: string | null;
+  readonly size: string | null;
+  readonly status: CrmAccountStatus;
+  readonly ownerId: EntityId;
+  readonly healthScore: number;
+  readonly healthStatus: CrmHealthStatus;
+  readonly lifecycleStage: string;
+  readonly renewalDate: ISODateString | null;
+  readonly onboardingProjectId: EntityId | null;
+  readonly tags: string[];
+  readonly customFields: CrmCustomFieldValue[];
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface CrmContactSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly accountId: EntityId | null;
+  readonly firstName: string;
+  readonly lastName: string | null;
+  readonly email: string;
+  readonly phone: string | null;
+  readonly title: string | null;
+  readonly ownerId: EntityId;
+  readonly tags: string[];
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface CrmLeadSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly email: string;
+  readonly source: string | null;
+  readonly status: CrmLeadStatus;
+  readonly score: number;
+  readonly estimatedValue: number;
+  readonly ownerId: EntityId;
+  readonly convertedAccountId: EntityId | null;
+  readonly convertedContactId: EntityId | null;
+  readonly convertedDealId: EntityId | null;
+  readonly tags: string[];
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface CrmDealSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly accountId: EntityId;
+  readonly contactId: EntityId | null;
+  readonly projectId: EntityId | null;
+  readonly name: string;
+  readonly stage: CrmDealStage;
+  readonly forecastCategory: CrmForecastCategory;
+  readonly value: number;
+  readonly currency: string;
+  readonly probability: number;
+  readonly expectedCloseDate: ISODateString | null;
+  readonly ownerId: EntityId;
+  readonly nextStep: string | null;
+  readonly tags: string[];
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface CrmActivitySummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly accountId: EntityId | null;
+  readonly contactId: EntityId | null;
+  readonly leadId: EntityId | null;
+  readonly dealId: EntityId | null;
+  readonly taskId: EntityId | null;
+  readonly type: CrmActivityType;
+  readonly title: string;
+  readonly body: string | null;
+  readonly occurredAt: ISODateString;
+  readonly dueAt: ISODateString | null;
+  readonly completedAt: ISODateString | null;
+  readonly ownerId: EntityId;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface CrmNextAction {
+  readonly id: string;
+  readonly title: string;
+  readonly reason: string;
+  readonly priority: 'low' | 'medium' | 'high';
+  readonly entityType: 'account' | 'lead' | 'deal' | 'activity';
+  readonly entityId: EntityId | null;
+}
+
+export interface CrmStageBucket {
+  readonly stage: string;
+  readonly count: number;
+}
+
+export interface CrmDashboardSummary {
+  readonly workspaceId: EntityId;
+  readonly generatedAt: ISODateString;
+  readonly accountCount: number;
+  readonly contactCount: number;
+  readonly leadCount: number;
+  readonly openDealCount: number;
+  readonly pipelineValue: number;
+  readonly weightedPipelineValue: number;
+  readonly wonValue: number;
+  readonly atRiskAccountCount: number;
+  readonly dealsByStage: CrmStageBucket[];
+  readonly recentActivities: CrmActivitySummary[];
+  readonly nextActions: CrmNextAction[];
 }
 export type StrategicGoalType =
   'objective' | 'goal' | 'company_goal' | 'team_goal' | 'personal_goal';
@@ -331,6 +661,39 @@ export type TaskTypeCategory =
   'task' | 'bug' | 'story' | 'feature' | 'incident' | 'request' | 'custom';
 export type TemplateType = 'workspace' | 'project' | 'board' | 'task' | 'form' | 'workflow';
 export type IntakeFormVisibility = 'internal' | 'public';
+export type DocumentSpaceVisibility = 'workspace' | 'private';
+export type DocumentPageStatus =
+  'draft' | 'published' | 'archived' | 'deleted' | 'readonly' | 'template';
+export type DocumentPermissionRole = 'owner' | 'editor' | 'commenter' | 'viewer' | 'none';
+export type DocumentFavoriteTargetType = 'page' | 'space' | 'template';
+export type DocumentPinScope = 'workspace' | 'space' | 'personal';
+export type DocumentRelationshipTargetType =
+  'page' | 'task' | 'project' | 'goal' | 'incident' | 'form' | 'template' | 'document' | 'file';
+export type DocumentRelationshipKind =
+  'related_to' | 'depends_on' | 'parent_of' | 'child_of' | 'reference' | 'supersedes' | 'embed';
+export type DocumentSubscriptionLevel =
+  'all_updates' | 'major_updates' | 'comments_only' | 'mentions_only' | 'mute';
+export type DocumentBlockType =
+  | 'paragraph'
+  | 'heading_1'
+  | 'heading_2'
+  | 'heading_3'
+  | 'heading_4'
+  | 'bullet_list'
+  | 'numbered_list'
+  | 'checklist'
+  | 'quote'
+  | 'divider'
+  | 'callout'
+  | 'code'
+  | 'image'
+  | 'pdf'
+  | 'table'
+  | 'toggle'
+  | 'emoji'
+  | 'mention'
+  | 'task_embed'
+  | 'project_embed';
 
 export interface CustomFieldOptionSummary {
   readonly id: string;
@@ -501,6 +864,453 @@ export interface TemplateSummary {
   readonly createdBy: EntityId;
   readonly createdAt: ISODateString;
   readonly updatedAt: ISODateString;
+}
+
+export interface DocumentPermissionSummary {
+  readonly userId: EntityId;
+  readonly role: DocumentPermissionRole;
+}
+
+export interface DocumentSpaceSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly name: string;
+  readonly slug: string;
+  readonly description: string | null;
+  readonly icon: string | null;
+  readonly color: string | null;
+  readonly banner: string | null;
+  readonly homepagePageId: EntityId | null;
+  readonly defaultTemplateId: EntityId | null;
+  readonly defaultPermissions: DocumentPermissionSummary[];
+  readonly archived: boolean;
+  readonly visibility: DocumentSpaceVisibility;
+  readonly ownerId: EntityId;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentFolderSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly spaceId: EntityId;
+  readonly parentFolderId: EntityId | null;
+  readonly name: string;
+  readonly slug: string;
+  readonly description: string | null;
+  readonly icon: string | null;
+  readonly order: number;
+  readonly archived: boolean;
+  readonly visibility: DocumentSpaceVisibility;
+  readonly permissions: DocumentPermissionSummary[];
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentBlockSummary {
+  readonly id: EntityId;
+  readonly stableId: string;
+  readonly pageId: EntityId;
+  readonly parentBlockId: EntityId | null;
+  readonly type: DocumentBlockType;
+  readonly order: number;
+  readonly content: Record<string, unknown>;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentPageSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly spaceId: EntityId;
+  readonly folderId: EntityId | null;
+  readonly parentPageId: EntityId | null;
+  readonly title: string;
+  readonly slug: string;
+  readonly status: DocumentPageStatus;
+  readonly icon: string | null;
+  readonly coverImage: string | null;
+  readonly summary: string | null;
+  readonly properties: Record<string, unknown>;
+  readonly tagIds: EntityId[];
+  readonly currentVersion: number;
+  readonly publishedVersion: number | null;
+  readonly archived: boolean;
+  readonly deletedAt: ISODateString | null;
+  readonly ownerId: EntityId;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly permissions: DocumentPermissionSummary[];
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentPageDetailSummary extends DocumentPageSummary {
+  readonly blocks: DocumentBlockSummary[];
+  readonly breadcrumbs: {
+    readonly id: EntityId;
+    readonly title: string;
+    readonly type: 'space' | 'folder' | 'page';
+  }[];
+  readonly outline: DocumentPageOutlineItem[];
+  readonly backlinks: DocumentRelationshipSummary[];
+  readonly forwardLinks: DocumentRelationshipSummary[];
+  readonly watcher: DocumentWatcherSummary | null;
+}
+
+export interface DocumentPageOutlineItem {
+  readonly blockId: EntityId;
+  readonly stableId: string;
+  readonly title: string;
+  readonly level: 1 | 2 | 3 | 4;
+}
+
+export interface DocumentFavoriteSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly targetType: DocumentFavoriteTargetType;
+  readonly targetId: EntityId;
+  readonly sortOrder: number;
+  readonly createdAt: ISODateString;
+}
+
+export interface DocumentRecentPageSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly page: DocumentPageSummary;
+  readonly lastViewedAt: ISODateString;
+  readonly lastPosition: Record<string, unknown> | null;
+}
+
+export interface DocumentPinSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly scope: DocumentPinScope;
+  readonly spaceId: EntityId | null;
+  readonly userId: EntityId | null;
+  readonly page: DocumentPageSummary;
+  readonly sortOrder: number;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+}
+
+export interface DocumentRelationshipSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly sourcePageId: EntityId;
+  readonly targetType: DocumentRelationshipTargetType;
+  readonly targetId: EntityId;
+  readonly targetPageId: EntityId | null;
+  readonly relationshipType: DocumentRelationshipKind;
+  readonly broken: boolean;
+  readonly metadata: Record<string, unknown>;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentPageTagSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly name: string;
+  readonly slug: string;
+  readonly color: string;
+  readonly description: string | null;
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentTemplateSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly spaceId: EntityId | null;
+  readonly name: string;
+  readonly category: string;
+  readonly description: string | null;
+  readonly icon: string | null;
+  readonly blocks: DocumentBlockSummary[];
+  readonly variables: string[];
+  readonly favoriteCount: number;
+  readonly useCount: number;
+  readonly archived: boolean;
+  readonly createdBy: EntityId;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentWatcherSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly pageId: EntityId;
+  readonly userId: EntityId;
+  readonly subscription: DocumentSubscriptionLevel;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface KnowledgeHomeSummary {
+  readonly spaces: DocumentSpaceSummary[];
+  readonly recentPages: DocumentRecentPageSummary[];
+  readonly favorites: DocumentFavoriteSummary[];
+  readonly pinnedPages: DocumentPinSummary[];
+  readonly templates: DocumentTemplateSummary[];
+}
+
+export type SearchEntityType =
+  | 'project'
+  | 'board'
+  | 'task'
+  | 'document_space'
+  | 'document_folder'
+  | 'document_page'
+  | 'document_template'
+  | 'user'
+  | 'form'
+  | 'goal'
+  | 'initiative'
+  | 'portfolio'
+  | 'attachment';
+export type SearchSort = 'relevance' | 'updated' | 'created' | 'alphabetical' | 'popularity';
+
+export interface SearchHighlightSummary {
+  readonly field: 'title' | 'description' | 'content' | 'metadata' | 'tag';
+  readonly snippet: string;
+}
+
+export interface SearchResultSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly entityId: EntityId;
+  readonly entityType: SearchEntityType;
+  readonly title: string;
+  readonly description: string | null;
+  readonly url: string;
+  readonly score: number;
+  readonly highlights: SearchHighlightSummary[];
+  readonly metadata: Record<string, unknown>;
+  readonly ownerId: EntityId | null;
+  readonly updatedAt: ISODateString;
+}
+
+export interface SearchGroupSummary {
+  readonly entityType: SearchEntityType;
+  readonly total: number;
+  readonly results: SearchResultSummary[];
+}
+
+export interface SearchResponseSummary {
+  readonly query: string;
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+  readonly latencyMs: number;
+  readonly results: SearchResultSummary[];
+  readonly groups: SearchGroupSummary[];
+}
+
+export interface SearchSuggestionSummary {
+  readonly id: string;
+  readonly label: string;
+  readonly entityType: SearchEntityType | 'query' | 'command';
+  readonly entityId: EntityId | null;
+  readonly url: string | null;
+  readonly score: number;
+}
+
+export interface SavedSearchSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly name: string;
+  readonly query: string;
+  readonly filters: Record<string, unknown>;
+  readonly pinned: boolean;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface RecentSearchSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly userId: EntityId;
+  readonly query: string;
+  readonly filters: Record<string, unknown>;
+  readonly createdAt: ISODateString;
+}
+
+export interface SearchAnalyticsSummary {
+  readonly topQueries: { readonly query: string; readonly count: number }[];
+  readonly noResultQueries: { readonly query: string; readonly count: number }[];
+  readonly totalSearches: number;
+  readonly averageLatencyMs: number;
+}
+
+export interface KnowledgeChunkSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly sourceEntityType: SearchEntityType;
+  readonly sourceEntityId: EntityId;
+  readonly sectionId: string | null;
+  readonly heading: string | null;
+  readonly content: string;
+  readonly version: number;
+  readonly chunkOrder: number;
+  readonly chunkSize: number;
+  readonly embeddingProvider: string | null;
+  readonly embeddingId: string | null;
+  readonly updatedAt: ISODateString;
+}
+
+export type DocumentSyncOperationType =
+  | 'create_page'
+  | 'update_page'
+  | 'save_blocks'
+  | 'archive_page'
+  | 'restore_page'
+  | 'delete_page'
+  | 'comment'
+  | 'favorite'
+  | 'watch';
+export type DocumentSyncOperationStatus = 'queued' | 'applied' | 'conflict' | 'failed' | 'canceled';
+export type DocumentConnectionState =
+  'online' | 'offline' | 'reconnecting' | 'syncing' | 'conflict' | 'failed';
+export type DocumentImportFormat = 'markdown' | 'html' | 'text' | 'docx' | 'pdf';
+export type DocumentExportFormat = 'markdown' | 'html' | 'pdf' | 'text' | 'json';
+export type DocumentBulkAction =
+  | 'archive'
+  | 'restore'
+  | 'delete'
+  | 'duplicate'
+  | 'move'
+  | 'change_owner'
+  | 'change_tags'
+  | 'publish'
+  | 'unpublish';
+
+export interface DocumentSyncOperationSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly pageId: EntityId | null;
+  readonly clientOperationId: string;
+  readonly type: DocumentSyncOperationType;
+  readonly status: DocumentSyncOperationStatus;
+  readonly attempts: number;
+  readonly error: string | null;
+  readonly result: Record<string, unknown> | null;
+  readonly baseUpdatedAt: ISODateString | null;
+  readonly nextRetryAt: ISODateString | null;
+  readonly appliedAt: ISODateString | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentSyncSummary {
+  readonly status: DocumentConnectionState;
+  readonly applied: DocumentSyncOperationSummary[];
+  readonly conflicts: DocumentSyncOperationSummary[];
+  readonly failed: DocumentSyncOperationSummary[];
+  readonly serverTime: ISODateString;
+}
+
+export interface DocumentImportSummary {
+  readonly page: DocumentPageDetailSummary;
+  readonly format: DocumentImportFormat;
+  readonly blockCount: number;
+  readonly warnings: string[];
+  readonly durationMs: number;
+}
+
+export interface DocumentExportSummary {
+  readonly pageId: EntityId;
+  readonly format: DocumentExportFormat;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+}
+
+export interface DocumentBulkOperationSummary {
+  readonly action: DocumentBulkAction;
+  readonly total: number;
+  readonly succeeded: number;
+  readonly failed: number;
+  readonly results: {
+    readonly pageId: EntityId;
+    readonly status: 'succeeded' | 'failed';
+    readonly message: string;
+  }[];
+}
+
+export interface DocumentMediaAssetSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly pageId: EntityId | null;
+  readonly uploadedBy: EntityId;
+  readonly fileName: string;
+  readonly originalName: string;
+  readonly fileType: string;
+  readonly fileSize: number;
+  readonly url: string;
+  readonly usageCount: number;
+  readonly archived: boolean;
+  readonly metadata: Record<string, unknown>;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentRetentionPolicySummary {
+  readonly workspaceId: EntityId;
+  readonly draftRetentionDays: number;
+  readonly archiveRetentionDays: number;
+  readonly deletedRetentionDays: number;
+  readonly temporaryExportRetentionHours: number;
+  readonly temporaryImportRetentionHours: number;
+  readonly updatedBy: EntityId | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentVersionSummary {
+  readonly id: EntityId;
+  readonly pageId: EntityId;
+  readonly version: number;
+  readonly editorId: EntityId;
+  readonly summary: string | null;
+  readonly blockSnapshot: DocumentBlockSummary[];
+  readonly metadata: Record<string, unknown>;
+  readonly createdAt: ISODateString;
+}
+
+export interface DocumentCommentSummary {
+  readonly id: EntityId;
+  readonly pageId: EntityId;
+  readonly blockId: EntityId | null;
+  readonly parentCommentId: EntityId | null;
+  readonly authorId: EntityId;
+  readonly content: string;
+  readonly mentionedUserIds: EntityId[];
+  readonly resolved: boolean;
+  readonly editedAt: ISODateString | null;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DocumentTreeSummary {
+  readonly spaces: DocumentSpaceSummary[];
+  readonly folders: DocumentFolderSummary[];
+  readonly pages: DocumentPageSummary[];
 }
 
 export interface WorkspaceSettings {
@@ -799,6 +1609,8 @@ export interface AiSearchResult {
   readonly query: string;
   readonly filters: Record<string, string | string[] | boolean | number>;
   readonly tasks: TaskSummary[];
+  readonly results?: SearchResultSummary[];
+  readonly citations?: KnowledgeChunkSummary[];
 }
 
 export type PromptScope = 'global' | 'workspace' | 'project';
@@ -962,7 +1774,22 @@ export type RealtimeResource =
   | 'check_in'
   | 'initiative'
   | 'portfolio'
-  | 'strategic_link';
+  | 'strategic_link'
+  | 'document_space'
+  | 'document_folder'
+  | 'document_page'
+  | 'document_blocks'
+  | 'document_comment'
+  | 'resource_profile'
+  | 'resource_allocation'
+  | 'resource_availability'
+  | 'timer'
+  | 'time_entry'
+  | 'crm_account'
+  | 'crm_contact'
+  | 'crm_lead'
+  | 'crm_deal'
+  | 'crm_activity';
 
 export type RealtimeAction =
   | 'created'
@@ -976,7 +1803,8 @@ export type RealtimeAction =
   | 'removed'
   | 'joined'
   | 'left'
-  | 'invited';
+  | 'invited'
+  | 'published';
 
 export interface RealtimeMutationPayload<TData = unknown> {
   readonly id: string;

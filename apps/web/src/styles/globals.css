@@ -3,24 +3,34 @@
 
 :root {
   color-scheme: dark;
-  --app-bg: #020617;
-  --app-panel: #0f172a;
-  --app-panel-soft: rgba(255, 255, 255, 0.04);
-  --app-border: rgba(255, 255, 255, 0.1);
+  --app-bg: #050816;
+  --app-panel: #0d1326;
+  --app-panel-soft: rgba(255, 255, 255, 0.055);
+  --app-border: rgba(148, 163, 184, 0.18);
   --app-text: #f8fafc;
-  --app-muted: #94a3b8;
-  --app-subtle: #64748b;
+  --app-muted: #a7b3c7;
+  --app-subtle: #718096;
+  --app-accent: #34d399;
+  --app-accent-2: #22d3ee;
+  --app-accent-3: #a78bfa;
+  --app-danger: #fb7185;
+  --app-glow: rgba(52, 211, 153, 0.18);
 }
 
 :root.light {
   color-scheme: light;
-  --app-bg: #f8fafc;
+  --app-bg: #f6f8fb;
   --app-panel: #ffffff;
-  --app-panel-soft: rgba(15, 23, 42, 0.04);
-  --app-border: rgba(15, 23, 42, 0.12);
+  --app-panel-soft: rgba(15, 23, 42, 0.045);
+  --app-border: rgba(15, 23, 42, 0.13);
   --app-text: #0f172a;
-  --app-muted: #475569;
+  --app-muted: #526173;
   --app-subtle: #64748b;
+  --app-accent: #059669;
+  --app-accent-2: #0891b2;
+  --app-accent-3: #7c3aed;
+  --app-danger: #e11d48;
+  --app-glow: rgba(5, 150, 105, 0.12);
 }
 
 * {
@@ -40,10 +50,59 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+body {
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--app-accent) 32%, transparent);
+}
+
 button,
 a,
 input {
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  min-width: 0;
+}
+
+input,
+textarea,
+select {
+  max-width: 100%;
+}
+
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--app-muted) 35%, transparent) transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-muted) 28%, transparent);
+}
+
+.app-surface {
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--app-accent) 10%, transparent),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--app-accent-3) 10%, transparent),
+      transparent 30rem
+    ),
+    var(--app-bg);
 }
 
 :root.light .bg-slate-950,

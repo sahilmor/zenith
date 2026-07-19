@@ -105,6 +105,18 @@ views is documented in [docs/strategic-planning.md](docs/strategic-planning.md).
 Customization architecture for custom fields, task types, workflows, forms, and templates is
 documented in [docs/customization.md](docs/customization.md).
 
+Documents, spaces, pages, blocks, publishing, and document comments are documented in
+[docs/documents.md](docs/documents.md).
+
+Universal search, saved searches, knowledge indexing, search analytics, and AI retrieval are
+documented in [docs/search.md](docs/search.md).
+
+Resource management, time tracking, capacity planning, and workforce forecasting are documented in
+[docs/resource-management.md](docs/resource-management.md).
+
+CRM accounts, contacts, leads, deals, sales activity, customer health, and customer-success
+foundation APIs are documented in [docs/crm.md](docs/crm.md).
+
 ## Authentication API
 
 All API responses use this envelope:

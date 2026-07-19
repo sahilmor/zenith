@@ -54,6 +54,35 @@ const activityEventSchema = new Schema(
         'portfolio.restored',
         'strategic_link.created',
         'strategic_link.deleted',
+        'document.space.created',
+        'document.folder.created',
+        'document.page.created',
+        'document.page.updated',
+        'document.blocks.saved',
+        'document.page.published',
+        'document.page.archived',
+        'document.page.restored',
+        'document.page.deleted',
+        'document.comment.created',
+        'document.imported',
+        'document.exported',
+        'document.bulk.updated',
+        'document.media.uploaded',
+        'document.media.updated',
+        'resource.profile.updated',
+        'resource.allocation.created',
+        'resource.availability.created',
+        'time.timer.started',
+        'time.entry.created',
+        'crm.account.created',
+        'crm.account.updated',
+        'crm.contact.created',
+        'crm.lead.created',
+        'crm.lead.updated',
+        'crm.lead.converted',
+        'crm.deal.created',
+        'crm.deal.updated',
+        'crm.activity.created',
       ],
       index: true,
     },
@@ -110,7 +139,36 @@ export type ActivityEventName =
   | 'portfolio.archived'
   | 'portfolio.restored'
   | 'strategic_link.created'
-  | 'strategic_link.deleted';
+  | 'strategic_link.deleted'
+  | 'document.space.created'
+  | 'document.folder.created'
+  | 'document.page.created'
+  | 'document.page.updated'
+  | 'document.blocks.saved'
+  | 'document.page.published'
+  | 'document.page.archived'
+  | 'document.page.restored'
+  | 'document.page.deleted'
+  | 'document.comment.created'
+  | 'document.imported'
+  | 'document.exported'
+  | 'document.bulk.updated'
+  | 'document.media.uploaded'
+  | 'document.media.updated'
+  | 'resource.profile.updated'
+  | 'resource.allocation.created'
+  | 'resource.availability.created'
+  | 'time.timer.started'
+  | 'time.entry.created'
+  | 'crm.account.created'
+  | 'crm.account.updated'
+  | 'crm.contact.created'
+  | 'crm.lead.created'
+  | 'crm.lead.updated'
+  | 'crm.lead.converted'
+  | 'crm.deal.created'
+  | 'crm.deal.updated'
+  | 'crm.activity.created';
 
 export interface CreateActivityEventInput {
   workspaceId: Types.ObjectId;

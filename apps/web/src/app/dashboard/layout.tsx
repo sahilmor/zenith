@@ -5,12 +5,14 @@ import { AiCopilotSidebar } from '@/features/ai/components/ai-copilot-sidebar';
 
 export default function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="min-h-screen bg-slate-950">
-      <div className="flex">
+    <div className="app-surface h-screen overflow-hidden">
+      <div className="flex h-full min-w-0">
         <Sidebar />
-        <div className="min-w-0 flex-1">
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
           <Navbar />
-          {children}
+          <div className="app-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            {children}
+          </div>
         </div>
       </div>
       <AiCopilotSidebar />

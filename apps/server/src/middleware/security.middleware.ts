@@ -7,11 +7,10 @@ interface Bucket {
   count: number;
   resetAt: number;
 }
-const buckets = new Map<string, Bucket>();
 
-export const rateLimit =
-  (maxRequests: number, windowMs: number): RequestHandler =>
-  (request, response, next) => {
+export const rateLimit = (maxRequests: number, windowMs: number): RequestHandler => {
+  const buckets = new Map<string, Bucket>();
+  return (request, response, next) => {
     const key = request.ip ?? request.socket.remoteAddress ?? 'unknown';
     const now = Date.now();
     const bucket = buckets.get(key);
@@ -33,6 +32,7 @@ export const rateLimit =
     bucket.count += 1;
     next();
   };
+};
 
 export const preventHttpParameterPollution: RequestHandler = (request, _response, next) => {
   for (const [key, value] of Object.entries(request.query)) {

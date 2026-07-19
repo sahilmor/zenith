@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import { env } from '../../../config/env.js';
-import { EmailService } from '../../../services/email.service.js';
+import { EmailService, type EmailSender } from '../../../services/email.service.js';
 import { BadRequestError, ConflictError, UnauthorizedError } from '../../../utils/app-error.js';
+import { logger } from '../../../utils/logger.js';
 import type { UserDocument } from '../../users/models/user.model.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import type {
@@ -36,7 +37,7 @@ export class AuthService {
   public constructor(
     private readonly users = new UserRepository(),
     private readonly tokens = new TokenService(),
-    private readonly email = new EmailService(),
+    private readonly email: EmailSender = new EmailService(),
   ) {}
 
   public async signup(input: SignupInput): Promise<AuthResult> {
@@ -62,7 +63,7 @@ export class AuthService {
     user.passwordResetToken = hashedToken;
     user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await this.users.save(user);
-    await this.sendIfConfigured(() =>
+    await this.sendAuthEmail('password_reset', user.email, () =>
       this.email.sendPasswordReset({
         to: user.email,
         name: user.name,
@@ -101,7 +102,7 @@ export class AuthService {
     user.emailVerificationToken = hashedToken;
     user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await this.users.save(user);
-    await this.sendIfConfigured(() =>
+    await this.sendAuthEmail('email_verification', user.email, () =>
       this.email.sendEmailVerification({
         to: user.email,
         name: user.name,
@@ -119,8 +120,24 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private async sendIfConfigured(send: () => Promise<void>): Promise<void> {
-    if (!this.email.isConfigured()) return;
+  private async sendAuthEmail(
+    type: 'email_verification' | 'password_reset',
+    _to: string,
+    send: () => Promise<void>,
+  ): Promise<void> {
+    if (!this.email.isConfigured()) {
+      logger.warn('Auth email not sent because email service is not configured', {
+        type,
+        required:
+          'Set RESEND_API_KEY and SMTP_FROM, or set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM.',
+      });
+      if (env.NODE_ENV === 'development') {
+        throw new BadRequestError(
+          'Email service is not configured. Add RESEND_API_KEY and SMTP_FROM, or configure SMTP settings in apps/server/.env.',
+        );
+      }
+      return;
+    }
     await send();
   }
 

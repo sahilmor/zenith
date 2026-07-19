@@ -18,12 +18,16 @@ export function Dropdown({ trigger, children }: DropdownProps) {
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, []);
   return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((value) => !value)} className="outline-none">
+    <div ref={ref} className="relative min-w-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="min-w-0 max-w-full outline-none"
+      >
         {trigger}
       </button>
       {open ? (
-        <div className="absolute right-0 top-12 z-40 min-w-56 rounded-2xl border border-white/10 bg-slate-950 p-2 shadow-2xl shadow-black/40">
+        <div className="absolute right-0 top-12 z-40 w-max min-w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-2 text-[var(--app-text)] shadow-2xl shadow-black/30">
           {children}
         </div>
       ) : null}

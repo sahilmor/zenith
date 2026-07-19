@@ -10,19 +10,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, id, ...props }, ref) => {
     const inputId = id ?? props.name;
     return (
-      <label className="block space-y-2" htmlFor={inputId}>
-        {label ? <span className="text-sm font-medium text-slate-200">{label}</span> : null}
+      <label className="block min-w-0 space-y-2" htmlFor={inputId}>
+        {label ? <span className="text-sm font-medium text-[var(--app-text)]">{label}</span> : null}
         <input
           id={inputId}
           ref={ref}
           className={cn(
-            'h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30 focus:ring-2 focus:ring-white/10',
-            error && 'border-red-400/70 focus:border-red-400',
+            'h-11 w-full min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 text-sm text-[var(--app-text)] outline-none transition placeholder:text-[var(--app-subtle)] focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-glow)]',
+            error && 'border-[var(--app-danger)] focus:border-[var(--app-danger)]',
             className,
           )}
           {...props}
         />
-        {error ? <span className="text-xs text-red-300">{error}</span> : null}
+        {error ? <span className="text-xs text-[var(--app-danger)]">{error}</span> : null}
       </label>
     );
   },

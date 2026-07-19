@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
+  Building2,
   ChartNoAxesCombined,
   Bot,
   CreditCard,
+  FileText,
   FolderKanban,
   GanttChart,
   LayoutDashboard,
@@ -19,6 +21,7 @@ import {
   Table2,
   Target,
   UserCheck,
+  UsersRound,
   Users,
   X,
 } from 'lucide-react';
@@ -27,40 +30,68 @@ import { WorkspaceSwitcher } from '@/features/workspaces/components/workspace-sw
 import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
-const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Insights', href: '/dashboard/insights', icon: ChartNoAxesCombined },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: ChartNoAxesCombined },
-  { label: 'Reports', href: '/dashboard/reports', icon: NotebookTabs },
-  { label: 'AI Copilot', href: '/dashboard/ai', icon: Bot },
-  { label: 'Automations', href: '/dashboard/automations', icon: Workflow },
-  { label: 'Prompts', href: '/dashboard/prompts', icon: NotebookTabs },
-  { label: 'Goals', href: '/dashboard/goals', icon: Target },
-  { label: 'Initiatives', href: '/dashboard/initiatives', icon: Milestone },
-  { label: 'Portfolios', href: '/dashboard/portfolios', icon: NotebookTabs },
-  { label: 'Roadmap', href: '/dashboard/roadmap', icon: Map },
-  { label: 'Customization', href: '/dashboard/customization', icon: SlidersHorizontal },
-  { label: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
-  { label: 'My Tasks', href: '/dashboard/tasks/my', icon: UserCheck },
-  { label: 'Calendar', href: '/dashboard/tasks/calendar', icon: CalendarDays },
-  { label: 'Table', href: '/dashboard/tasks/table', icon: Table2 },
-  { label: 'Timeline', href: '/dashboard/tasks/timeline', icon: GanttChart },
-  { label: 'Members', href: '/dashboard/workspace/members', icon: Users },
-  { label: 'Billing', href: '/dashboard/workspace/billing', icon: CreditCard },
-  { label: 'Settings', href: '/dashboard/workspace/settings', icon: Settings },
-];
+const navGroups = [
+  {
+    label: 'Operate',
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
+      { label: 'Documents', href: '/dashboard/documents', icon: FileText },
+      { label: 'CRM', href: '/dashboard/crm', icon: Building2 },
+      { label: 'Resources', href: '/dashboard/resources', icon: UsersRound },
+    ],
+  },
+  {
+    label: 'Tasks',
+    items: [
+      { label: 'My Tasks', href: '/dashboard/tasks/my', icon: UserCheck },
+      { label: 'Calendar', href: '/dashboard/tasks/calendar', icon: CalendarDays },
+      { label: 'Table', href: '/dashboard/tasks/table', icon: Table2 },
+      { label: 'Timeline', href: '/dashboard/tasks/timeline', icon: GanttChart },
+    ],
+  },
+  {
+    label: 'Strategy',
+    items: [
+      { label: 'Goals', href: '/dashboard/goals', icon: Target },
+      { label: 'Initiatives', href: '/dashboard/initiatives', icon: Milestone },
+      { label: 'Portfolios', href: '/dashboard/portfolios', icon: NotebookTabs },
+      { label: 'Roadmap', href: '/dashboard/roadmap', icon: Map },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { label: 'Insights', href: '/dashboard/insights', icon: ChartNoAxesCombined },
+      { label: 'Analytics', href: '/dashboard/analytics', icon: ChartNoAxesCombined },
+      { label: 'Reports', href: '/dashboard/reports', icon: NotebookTabs },
+      { label: 'AI Copilot', href: '/dashboard/ai', icon: Bot },
+      { label: 'Automations', href: '/dashboard/automations', icon: Workflow },
+      { label: 'Prompts', href: '/dashboard/prompts', icon: NotebookTabs },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [
+      { label: 'Customization', href: '/dashboard/customization', icon: SlidersHorizontal },
+      { label: 'Members', href: '/dashboard/workspace/members', icon: Users },
+      { label: 'Billing', href: '/dashboard/workspace/billing', icon: CreditCard },
+      { label: 'Settings', href: '/dashboard/workspace/settings', icon: Settings },
+    ],
+  },
+] as const;
 
 function SidebarContent() {
   const pathname = usePathname();
   const closeMobile = useSidebarStore((state) => state.closeMobile);
   return (
-    <aside className="flex h-full flex-col bg-[var(--app-panel)] p-4 text-[var(--app-text)]">
-      <div className="mb-5 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-lg bg-white text-sm font-bold text-slate-950">
+    <aside className="flex h-full min-w-0 flex-col bg-[var(--app-panel)] p-4 text-[var(--app-text)]">
+      <div className="mb-5 flex min-w-0 items-center justify-between gap-3">
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[linear-gradient(135deg,var(--app-accent),var(--app-accent-2))] text-sm font-bold text-slate-950 shadow-lg shadow-[var(--app-glow)]">
             Z
           </span>
-          <span className="font-semibold">Zenith</span>
+          <span className="truncate font-semibold">Zenith</span>
         </Link>
         <Button
           type="button"
@@ -75,32 +106,45 @@ function SidebarContent() {
       <div className="mb-5">
         <WorkspaceSwitcher />
       </div>
-      <nav className="space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active =
-            item.href === '/dashboard'
-              ? pathname === '/dashboard'
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={closeMobile}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white',
-                active && 'bg-white/10 text-[var(--app-text)]',
-              )}
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="app-scrollbar -mx-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-4">
+        {navGroups.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--app-subtle)]">
+              {group.label}
+            </p>
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active =
+                item.href === '/dashboard'
+                  ? pathname === '/dashboard'
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={closeMobile}
+                  className={cn(
+                    'group flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--app-muted)] transition hover:bg-[var(--app-panel-soft)] hover:text-[var(--app-text)]',
+                    active &&
+                      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--app-accent)_17%,transparent),color-mix(in_srgb,var(--app-accent-2)_10%,transparent))] text-[var(--app-text)] shadow-sm shadow-[var(--app-glow)]',
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'size-4 shrink-0 text-[var(--app-subtle)] transition group-hover:text-[var(--app-accent)]',
+                      active && 'text-[var(--app-accent)]',
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
-      <div className="mt-auto rounded-lg border border-white/10 bg-white/[0.04] p-4">
+      <div className="mt-4 rounded-lg border border-[var(--app-border)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--app-accent)_12%,transparent),color-mix(in_srgb,var(--app-accent-3)_8%,transparent))] p-4">
         <p className="text-sm font-medium">Workspace ready</p>
-        <p className="mt-1 text-xs leading-5 text-slate-400">
+        <p className="mt-1 text-xs leading-5 text-[var(--app-muted)]">
           Manage organization settings, access, and invitations from this shell.
         </p>
       </div>

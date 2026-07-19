@@ -29,6 +29,28 @@ export const supportedAttachmentExtensions = new Set([
 ]);
 
 export const maxAttachmentSize = 10 * 1024 * 1024;
+export const maxDocumentImportSize = 10 * 1024 * 1024;
+
+const supportedDocumentImportTypes = new Set([
+  'text/markdown',
+  'text/plain',
+  'text/html',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/zip',
+  'application/x-zip-compressed',
+]);
+
+const supportedDocumentImportExtensions = new Set([
+  '.md',
+  '.markdown',
+  '.txt',
+  '.html',
+  '.htm',
+  '.pdf',
+  '.docx',
+  '.zip',
+]);
 
 export const isSupportedAttachment = (
   file: Pick<Express.Multer.File, 'mimetype' | 'originalname'>,
@@ -47,6 +69,23 @@ export const attachmentUpload = multer({
   fileFilter: (_request, file, callback) => {
     if (!isSupportedAttachment(file)) {
       callback(new BadRequestError('Unsupported attachment type'));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+export const documentImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxDocumentImportSize, files: 1 },
+  fileFilter: (_request, file, callback) => {
+    const extension = path.extname(file.originalname).toLowerCase();
+    const supported =
+      supportedDocumentImportTypes.has(file.mimetype) ||
+      (supportedDocumentImportExtensions.has(extension) &&
+        (file.mimetype === '' || file.mimetype === 'application/octet-stream'));
+    if (!supported) {
+      callback(new BadRequestError('Unsupported document import type'));
       return;
     }
     callback(null, true);

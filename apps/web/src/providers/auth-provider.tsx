@@ -7,8 +7,10 @@ import type { AuthPayload } from '@/lib/api/types';
 import { useAuthStore } from '@/stores/auth-store';
 
 const publicRoutes = new Set([
+  '/',
   '/login',
   '/signup',
+  '/pricing',
   '/forgot-password',
   '/reset-password',
   '/verify-email',

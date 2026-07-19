@@ -86,6 +86,25 @@ export class FeatureFlagService {
       reason: 'rollout',
     };
   }
+
+  public async isEnabled(
+    input: {
+      key: string;
+      userId: Types.ObjectId;
+      workspaceId?: Types.ObjectId;
+    },
+    defaultEnabled: boolean,
+  ): Promise<boolean> {
+    if (input.workspaceId) {
+      const membership = await this.workspaces.findMembership(input.workspaceId, input.userId);
+      if (!membership || membership.status !== 'active') {
+        throw new ForbiddenError('Workspace access denied');
+      }
+    }
+    const flag = await this.flags.findByKey(input.key.toLowerCase());
+    if (!flag) return defaultEnabled;
+    return (await this.evaluate(input)).enabled;
+  }
 }
 
 export const featureFlagService = new FeatureFlagService();
