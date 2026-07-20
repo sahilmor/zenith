@@ -1,5 +1,6 @@
 import type {
   WorkspaceInvitationSummary,
+  WorkspaceInvitationPreview,
   WorkspaceMemberSummary,
   WorkspaceRole,
   WorkspaceSummary,
@@ -9,6 +10,7 @@ import type {
 export type Workspace = WorkspaceSummary;
 export type WorkspaceMember = WorkspaceMemberSummary;
 export type WorkspaceInvitation = WorkspaceInvitationSummary;
+export type InvitationPreview = WorkspaceInvitationPreview;
 
 export interface CreateWorkspaceInput {
   name: string;

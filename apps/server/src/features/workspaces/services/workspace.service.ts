@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type {
   WorkspaceInvitationStatus,
+  WorkspaceInvitationPreview,
   WorkspaceInvitationSummary,
   WorkspaceMemberSummary,
   WorkspaceRole,
@@ -356,13 +357,8 @@ export class WorkspaceService {
   public async acceptInvitation(user: UserDocument, token: string): Promise<WorkspaceSummary> {
     const invitation = await this.workspaces.findInvitationByToken(token);
     if (!invitation) throw new NotFoundError('Invitation not found');
-    if (invitation.status !== 'pending')
-      throw new BadRequestError('Invitation is no longer pending');
-    if (invitation.expiresAt.getTime() < Date.now()) {
-      await this.workspaces.updateInvitation({ _id: invitation._id }, { status: 'expired' });
-      throw new BadRequestError('Invitation has expired');
-    }
-    if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
+    await this.assertInvitationIsAcceptable(invitation);
+    if (this.normalizeEmail(invitation.email) !== this.normalizeEmail(user.email)) {
       throw new ForbiddenError('Invitation does not match the signed-in user');
     }
     await entitlementService.requireWithinLimit(invitation.workspaceId, 'members');
@@ -403,6 +399,22 @@ export class WorkspaceService {
     return workspace;
   }
 
+  public async previewInvitation(token: string): Promise<WorkspaceInvitationPreview> {
+    const invitation = await this.workspaces.findInvitationByToken(token);
+    if (!invitation) throw new NotFoundError('Invitation not found');
+    await this.assertInvitationIsAcceptable(invitation);
+    const workspace = await this.workspaces.findWorkspaceById(invitation.workspaceId);
+    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
+    return {
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      email: invitation.email,
+      role: invitation.role as WorkspaceRole,
+      expiresAt: invitation.expiresAt.toISOString(),
+      status: invitation.status as WorkspaceInvitationStatus,
+    };
+  }
+
   public async requireActiveMembership(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
     const [workspace, membership] = await Promise.all([
       this.workspaces.findWorkspaceById(workspaceId),
@@ -432,6 +444,21 @@ export class WorkspaceService {
   private async ensureAnotherOwner(workspaceId: Types.ObjectId): Promise<void> {
     const owners = await this.workspaces.countOwners(workspaceId);
     if (owners <= 1) throw new ForbiddenError('Workspace must keep at least one owner');
+  }
+
+  private async assertInvitationIsAcceptable(
+    invitation: WorkspaceInvitationDocument,
+  ): Promise<void> {
+    if (invitation.status !== 'pending')
+      throw new BadRequestError('Invitation is no longer pending');
+    if (invitation.expiresAt.getTime() < Date.now()) {
+      await this.workspaces.updateInvitation({ _id: invitation._id }, { status: 'expired' });
+      throw new BadRequestError('Invitation has expired');
+    }
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
   }
 
   private async generateUniqueSlug(name: string): Promise<string> {

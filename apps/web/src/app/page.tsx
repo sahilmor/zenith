@@ -107,12 +107,12 @@ const stats = [
 ] as const;
 
 const productPillars = [
-  { label: 'Projects', icon: PanelsTopLeft },
-  { label: 'Tasks', icon: CheckCircle2 },
-  { label: 'Docs', icon: FileText },
-  { label: 'CRM', icon: Building2 },
-  { label: 'Analytics', icon: BarChart3 },
-  { label: 'AI', icon: Sparkles },
+  { label: 'Projects', icon: PanelsTopLeft, tone: 'text-cyan-300' },
+  { label: 'Tasks', icon: CheckCircle2, tone: 'text-emerald-300' },
+  { label: 'Docs', icon: FileText, tone: 'text-violet-300' },
+  { label: 'CRM', icon: Building2, tone: 'text-amber-300' },
+  { label: 'Analytics', icon: BarChart3, tone: 'text-rose-300' },
+  { label: 'AI', icon: Sparkles, tone: 'text-sky-300' },
 ] as const;
 
 const workflowRows = [
@@ -169,14 +169,14 @@ export default function HomePage() {
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 md:px-8 md:py-16 lg:grid-cols-[0.92fr_1.08fr] lg:py-20">
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 md:px-8 md:py-16 xl:grid-cols-[0.88fr_1.12fr] xl:py-20">
         <div className="space-y-7">
           <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 text-xs font-medium text-[var(--app-muted)]">
             <Sparkles className="size-4 text-emerald-300" />
             Work, knowledge, customers, and AI in one operating system
           </div>
           <div className="space-y-5">
-            <h1 className="max-w-4xl text-5xl font-semibold tracking-tight text-[var(--app-text)] md:text-6xl lg:text-7xl">
+            <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-[var(--app-text)] sm:text-5xl md:text-6xl xl:text-7xl">
               Run your whole company from one workspace.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[var(--app-muted)] md:text-lg">
@@ -222,10 +222,10 @@ export default function HomePage() {
             return (
               <div
                 key={pillar.label}
-                className="flex items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4"
+                className="flex min-w-0 items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4"
               >
-                <Icon className="size-5 text-emerald-300" />
-                <span className="text-sm font-medium">{pillar.label}</span>
+                <Icon className={`size-5 shrink-0 ${pillar.tone}`} />
+                <span className="truncate text-sm font-medium">{pillar.label}</span>
               </div>
             );
           })}
@@ -259,12 +259,9 @@ export default function HomePage() {
                 </p>
                 <ul className="mt-5 space-y-2">
                   {feature.items.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-center gap-2 text-sm text-[var(--app-muted)]"
-                    >
-                      <CheckCircle2 className="size-4 text-emerald-300" />
-                      {item}
+                    <li key={item} className="flex min-w-0 gap-2 text-sm text-[var(--app-muted)]">
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+                      <span className="min-w-0">{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -325,27 +322,27 @@ export default function HomePage() {
 
 function ProductPreview() {
   return (
-    <div className="relative">
-      <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-3 shadow-2xl shadow-black/20">
-        <div className="mb-3 flex items-center justify-between border-b border-[var(--app-border)] pb-3">
+    <div className="relative min-w-0">
+      <div className="overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] p-3 shadow-2xl shadow-black/20">
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3 border-b border-[var(--app-border)] pb-3">
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full bg-rose-400" />
             <span className="size-3 rounded-full bg-amber-300" />
             <span className="size-3 rounded-full bg-emerald-400" />
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-1.5 text-xs text-[var(--app-muted)]">
-            <MousePointer2 className="size-3.5" />
-            Live workspace
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-1.5 text-xs text-[var(--app-muted)]">
+            <MousePointer2 className="size-3.5 shrink-0" />
+            <span className="truncate">Live workspace</span>
           </div>
         </div>
-        <div className="grid gap-3 lg:grid-cols-[0.72fr_1.28fr]">
-          <aside className="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
-            <div className="mb-4 flex items-center gap-2">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
+        <div className="grid min-w-0 gap-3 2xl:grid-cols-[0.7fr_1.3fr]">
+          <aside className="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
+            <div className="mb-4 flex min-w-0 items-center gap-2">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
                 <Building2 className="size-4" />
               </div>
-              <div>
-                <p className="text-sm font-semibold">Acme Workspace</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">Acme Workspace</p>
                 <p className="text-xs text-[var(--app-muted)]">Business plan</p>
               </div>
             </div>
@@ -353,15 +350,15 @@ function ProductPreview() {
               {previewNavItems.map(({ label, icon: Icon }) => (
                 <div
                   key={label}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--app-muted)]"
+                  className="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--app-muted)]"
                 >
-                  <Icon className="size-4 text-emerald-300" />
-                  {label}
+                  <Icon className="size-4 shrink-0 text-emerald-300" />
+                  <span className="truncate">{label}</span>
                 </div>
               ))}
             </div>
           </aside>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <PreviewMetric
                 label="Pipeline"
@@ -379,27 +376,27 @@ function ProductPreview() {
                 icon={<Network className="size-4" />}
               />
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid min-w-0 gap-3 lg:grid-cols-3">
               {['Todo', 'In Progress', 'Done'].map((column, index) => (
                 <div
                   key={column}
-                  className="min-h-64 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-3"
+                  className="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-3"
                 >
-                  <div className="mb-3 flex items-center justify-between text-xs text-[var(--app-muted)]">
-                    <span>{column}</span>
-                    <span>{index + 2}</span>
+                  <div className="mb-3 flex min-w-0 items-center justify-between gap-2 text-xs text-[var(--app-muted)]">
+                    <span className="truncate">{column}</span>
+                    <span className="shrink-0">{index + 2}</span>
                   </div>
                   <div className="space-y-3">
                     {workflowRows.slice(0, index + 1).map((row) => (
                       <div
                         key={`${column}-${row.label}`}
-                        className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3"
+                        className="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3"
                       >
                         <div className={`mb-3 h-1.5 w-12 rounded-full ${row.tone}`} />
-                        <p className="text-sm font-medium">{row.label}</p>
-                        <div className="mt-3 flex items-center justify-between text-xs text-[var(--app-muted)]">
-                          <span>{row.owner}</span>
-                          <span>{row.stage}</span>
+                        <p className="truncate text-sm font-medium">{row.label}</p>
+                        <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-xs text-[var(--app-muted)]">
+                          <span className="truncate">{row.owner}</span>
+                          <span className="shrink-0 truncate">{row.stage}</span>
                         </div>
                       </div>
                     ))}
@@ -424,12 +421,12 @@ function PreviewMetric({
   readonly icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
-      <div className="flex items-center justify-between text-[var(--app-muted)]">
-        <span className="text-xs">{label}</span>
-        <span className="text-emerald-300">{icon}</span>
+    <div className="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
+      <div className="flex min-w-0 items-center justify-between gap-2 text-[var(--app-muted)]">
+        <span className="truncate text-xs">{label}</span>
+        <span className="shrink-0 text-emerald-300">{icon}</span>
       </div>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+      <p className="mt-2 truncate text-2xl font-semibold">{value}</p>
     </div>
   );
 }

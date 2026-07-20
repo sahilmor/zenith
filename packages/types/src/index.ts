@@ -46,7 +46,8 @@ export type BillingFeature =
   | 'templates'
   | 'documents'
   | 'resource_planning'
-  | 'crm';
+  | 'crm'
+  | 'devops';
 export type BillingLimitKey =
   | 'members'
   | 'projects'
@@ -72,7 +73,10 @@ export type BillingLimitKey =
   | 'crmAccounts'
   | 'crmContacts'
   | 'crmLeads'
-  | 'crmDeals';
+  | 'crmDeals'
+  | 'devOpsRepositories'
+  | 'devOpsPipelines'
+  | 'devOpsDeployments';
 
 export type BillingLimits = Record<BillingLimitKey, number | null>;
 
@@ -1365,6 +1369,15 @@ export interface WorkspaceInvitationSummary {
   readonly createdAt: ISODateString;
 }
 
+export interface WorkspaceInvitationPreview {
+  readonly workspaceId: EntityId;
+  readonly workspaceName: string;
+  readonly email: string;
+  readonly role: WorkspaceRole;
+  readonly expiresAt: ISODateString;
+  readonly status: WorkspaceInvitationStatus;
+}
+
 export interface ProjectSummary {
   readonly id: EntityId;
   readonly workspaceId: EntityId;
@@ -1789,7 +1802,13 @@ export type RealtimeResource =
   | 'crm_contact'
   | 'crm_lead'
   | 'crm_deal'
-  | 'crm_activity';
+  | 'crm_activity'
+  | 'devops_repository'
+  | 'devops_branch'
+  | 'devops_commit'
+  | 'devops_pull_request'
+  | 'devops_pipeline'
+  | 'devops_deployment';
 
 export type RealtimeAction =
   | 'created'
@@ -1910,4 +1929,145 @@ export interface NotificationPreferencesSummary {
   readonly workspace: boolean;
   readonly createdAt: ISODateString;
   readonly updatedAt: ISODateString;
+}
+
+export type GitProvider = 'github' | 'gitlab' | 'bitbucket' | 'azure_devops' | 'manual';
+export type DevOpsRepositoryStatus = 'active' | 'archived' | 'disabled';
+export type PullRequestStatus = 'draft' | 'open' | 'merged' | 'closed';
+export type PullRequestReviewStatus = 'pending' | 'approved' | 'changes_requested' | 'commented';
+export type PipelineStatus = 'queued' | 'running' | 'success' | 'failed' | 'canceled';
+export type DeploymentStatus = 'pending' | 'in_progress' | 'success' | 'failed' | 'rolled_back';
+export type DeploymentEnvironmentType = 'development' | 'preview' | 'staging' | 'production';
+
+export interface DevOpsLinkedWorkItem {
+  readonly type: 'task' | 'project' | 'document' | 'goal' | 'incident';
+  readonly id: EntityId;
+}
+
+export interface DevOpsRepositorySummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly projectId: EntityId | null;
+  readonly provider: GitProvider;
+  readonly providerRepositoryId: string;
+  readonly name: string;
+  readonly fullName: string;
+  readonly url: string;
+  readonly defaultBranch: string;
+  readonly visibility: 'private' | 'public' | 'internal';
+  readonly status: DevOpsRepositoryStatus;
+  readonly language: string | null;
+  readonly topics: string[];
+  readonly lastSyncedAt: ISODateString | null;
+  readonly createdBy: EntityId;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DevOpsBranchSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly repositoryId: EntityId;
+  readonly name: string;
+  readonly headSha: string;
+  readonly protected: boolean;
+  readonly lastCommitAt: ISODateString | null;
+  readonly linkedWorkItems: DevOpsLinkedWorkItem[];
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
+}
+
+export interface DevOpsCommitSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly repositoryId: EntityId;
+  readonly sha: string;
+  readonly message: string;
+  readonly authorName: string;
+  readonly authorEmail: string | null;
+  readonly committedAt: ISODateString;
+  readonly branchName: string | null;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly filesChanged: number;
+  readonly linkedWorkItems: DevOpsLinkedWorkItem[];
+}
+
+export interface DevOpsPullRequestSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly repositoryId: EntityId;
+  readonly providerPullRequestId: string;
+  readonly number: number;
+  readonly title: string;
+  readonly url: string;
+  readonly status: PullRequestStatus;
+  readonly reviewStatus: PullRequestReviewStatus;
+  readonly sourceBranch: string;
+  readonly targetBranch: string;
+  readonly authorName: string;
+  readonly openedAt: ISODateString;
+  readonly mergedAt: ISODateString | null;
+  readonly closedAt: ISODateString | null;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly changedFiles: number;
+  readonly linkedWorkItems: DevOpsLinkedWorkItem[];
+}
+
+export interface DevOpsPipelineRunSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly repositoryId: EntityId;
+  readonly providerPipelineId: string;
+  readonly name: string;
+  readonly status: PipelineStatus;
+  readonly branchName: string | null;
+  readonly commitSha: string | null;
+  readonly startedAt: ISODateString;
+  readonly finishedAt: ISODateString | null;
+  readonly durationSeconds: number | null;
+  readonly url: string | null;
+  readonly testTotal: number;
+  readonly testFailed: number;
+  readonly artifactCount: number;
+}
+
+export interface DevOpsDeploymentSummary {
+  readonly id: EntityId;
+  readonly workspaceId: EntityId;
+  readonly repositoryId: EntityId;
+  readonly providerDeploymentId: string;
+  readonly environment: string;
+  readonly environmentType: DeploymentEnvironmentType;
+  readonly status: DeploymentStatus;
+  readonly commitSha: string | null;
+  readonly version: string | null;
+  readonly url: string | null;
+  readonly deployedAt: ISODateString;
+  readonly completedAt: ISODateString | null;
+  readonly approvedBy: EntityId | null;
+  readonly rollbackOfDeploymentId: EntityId | null;
+}
+
+export interface EngineeringMetricsSummary {
+  readonly repositoryCount: number;
+  readonly openPullRequestCount: number;
+  readonly mergedPullRequestCount: number;
+  readonly deploymentFrequency: number;
+  readonly leadTimeHours: number;
+  readonly changeFailureRate: number;
+  readonly mttrHours: number;
+  readonly averageReviewLatencyHours: number;
+  readonly buildSuccessRate: number;
+  readonly releaseRisk: ResourceDeliveryRisk;
+  readonly insights: string[];
+}
+
+export interface DevOpsWorkspaceSummary {
+  readonly metrics: EngineeringMetricsSummary;
+  readonly repositories: DevOpsRepositorySummary[];
+  readonly recentPullRequests: DevOpsPullRequestSummary[];
+  readonly recentPipelineRuns: DevOpsPipelineRunSummary[];
+  readonly recentDeployments: DevOpsDeploymentSummary[];
 }

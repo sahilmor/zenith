@@ -508,12 +508,12 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                 <ErrorState title="Unable to load page" description="Please select another page." />
               ) : (
                 <div className="flex h-full flex-col gap-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                    <div className="min-w-0">
                       <div className="text-xs text-slate-500">
                         {selectedPage.breadcrumbs.map((crumb) => crumb.title).join(' / ')}
                       </div>
-                      <h2 className="mt-2 text-2xl font-semibold">{selectedPage.title}</h2>
+                      <h2 className="mt-2 truncate text-2xl font-semibold">{selectedPage.title}</h2>
                       <p className="mt-1 text-sm text-slate-500">
                         {saveBlocks.isPending ? 'Saving…' : 'Autosaved'} · version{' '}
                         {selectedPage.currentVersion}
@@ -526,46 +526,78 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                           : null}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-none lg:auto-cols-max lg:grid-flow-col">
                       <Button
                         variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        disabled={favoriteTarget.isPending}
                         onClick={() =>
                           favoriteTarget.mutate({ targetType: 'page', targetId: selectedPage.id })
                         }
                       >
                         <Star className="size-4" />
-                        Favorite
+                        <span className="truncate">Favorite</span>
                       </Button>
                       <Button
                         variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        disabled={pinPage.isPending}
                         onClick={() => pinPage.mutate({ pageId: selectedPage.id })}
                       >
                         <Pin className="size-4" />
-                        Pin
-                      </Button>
-                      <Button variant="secondary" onClick={() => watchPage.mutate('all_updates')}>
-                        <Eye className="size-4" />
-                        {selectedPage.watcher ? 'Watching' : 'Watch'}
+                        <span className="truncate">Pin</span>
                       </Button>
                       <Button
                         variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        disabled={watchPage.isPending}
+                        onClick={() => watchPage.mutate('all_updates')}
+                      >
+                        <Eye className="size-4" />
+                        <span className="truncate">
+                          {selectedPage.watcher ? 'Watching' : 'Watch'}
+                        </span>
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        loading={saveBlocks.isPending}
                         onClick={() => {
                           saveBlocks.mutate({ blocks: textToBlocks(editorValue) });
                         }}
                       >
                         <Save className="size-4" />
-                        Save
+                        <span className="truncate">Save</span>
                       </Button>
-                      <Button variant="secondary" onClick={handleExport}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        loading={exportDocument.isPending}
+                        onClick={handleExport}
+                      >
                         <Download className="size-4" />
-                        Export
+                        <span className="truncate">Export</span>
                       </Button>
-                      <Button variant="secondary" onClick={() => publishPage.mutate()}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="min-w-0"
+                        loading={publishPage.isPending}
+                        onClick={() => publishPage.mutate()}
+                      >
                         <Send className="size-4" />
-                        Publish
+                        <span className="truncate">Publish</span>
                       </Button>
                       <Button
                         variant="ghost"
+                        size="sm"
+                        className="min-w-0"
+                        disabled={archivePage.isPending}
                         onClick={() => archivePage.mutate(selectedPage)}
                         aria-label="Archive page"
                       >

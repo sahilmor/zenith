@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api/client';
 import type {
   CreateWorkspaceInput,
+  InvitationPreview,
   InviteMemberInput,
   UpdateMemberRoleInput,
   UpdateWorkspaceInput,
@@ -19,6 +20,8 @@ export const workspaceKeys = {
     ['workspaces', workspaceId, 'members'] as const,
   invitations: (workspaceId: string | null | undefined) =>
     ['workspaces', workspaceId, 'invitations'] as const,
+  invitationPreview: (token: string | null | undefined) =>
+    ['workspaces', 'invitations', token] as const,
 };
 
 export function useWorkspaces(enabled = true) {
@@ -119,6 +122,15 @@ export function useInviteMember(workspaceId: string | null | undefined) {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.members(workspaceId) });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.invitations(workspaceId) });
     },
+  });
+}
+
+export function useInvitationPreview(token: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: workspaceKeys.invitationPreview(token),
+    queryFn: () => apiRequest<InvitationPreview>(`/api/workspaces/invitations/${token}`),
+    enabled: enabled && Boolean(token),
+    retry: false,
   });
 }
 

@@ -9,6 +9,7 @@ import {
   publicCustomizationRouter,
 } from '../features/customization/routes/customization.routes.js';
 import { crmRouter } from '../features/crm/routes/crm.routes.js';
+import { devOpsRouter } from '../features/devops/routes/devops.routes.js';
 import { documentRouter } from '../features/documents/routes/document.routes.js';
 import { notificationRouter } from '../features/notifications/routes/notification.routes.js';
 import { opsRouter } from '../features/ops/routes/ops.routes.js';
@@ -41,6 +42,7 @@ apiRouter.use('/v1', publicApiRouter);
 apiRouter.use('/public', publicCustomizationRouter);
 apiRouter.use('/', customizationRouter);
 apiRouter.use('/', crmRouter);
+apiRouter.use('/', devOpsRouter);
 apiRouter.use('/', documentRouter);
 apiRouter.use('/', resourceRouter);
 apiRouter.use('/', strategicRouter);

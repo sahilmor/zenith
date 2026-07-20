@@ -139,4 +139,38 @@ describe('WorkspaceService', () => {
     expect(membership?.role).toBe('manager');
     expect(membership?.status).toBe('active');
   });
+
+  it('previews invitations and rejects acceptance from a different signed-in email', async () => {
+    const owner = await createUser('owner@example.com', 'Owner User');
+    const invitee = await createUser('invitee@example.com', 'Invitee User');
+    const otherUser = await createUser('other@example.com', 'Other User');
+    const email = new MockEmailService();
+    const service = new WorkspaceService(undefined, undefined, undefined, email);
+    const workspace = await service.createWorkspace(owner._id, {
+      name: 'Engineering',
+      visibility: 'private',
+    });
+
+    const invitation = await service.inviteMember(
+      new mongoose.Types.ObjectId(workspace.id),
+      owner._id,
+      {
+        email: 'Invitee@Example.com',
+        role: 'member',
+      },
+    );
+    const storedInvitation = await WorkspaceInvitationModel.findById(invitation.id);
+    const token = storedInvitation?.token ?? '';
+
+    const preview = await service.previewInvitation(token);
+
+    expect(preview.workspaceName).toBe('Engineering');
+    expect(preview.email).toBe('invitee@example.com');
+    await expect(service.acceptInvitation(otherUser, token)).rejects.toThrow(
+      'Invitation does not match the signed-in user',
+    );
+
+    const accepted = await service.acceptInvitation(invitee, token);
+    expect(accepted.id).toBe(workspace.id);
+  });
 });

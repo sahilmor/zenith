@@ -8,11 +8,15 @@ import {
   Target,
   UserRoundPlus,
 } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { Skeleton } from '@/components/common/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
+  type CreateCrmAccountInput,
+  type CreateCrmLeadInput,
   useConvertCrmLead,
   useCreateCrmAccount,
   useCreateCrmLead,
@@ -29,6 +33,27 @@ const money = (value: number): string =>
     maximumFractionDigits: 0,
   }).format(value);
 
+type AccountStatus = NonNullable<CreateCrmAccountInput['status']>;
+
+const toOptionalNumber = (value: string): number | undefined => {
+  if (!value.trim()) return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+const toTags = (value: string): string[] =>
+  value
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+const healthBarClass = (score: number): string => {
+  if (score >= 80) return 'bg-emerald-400';
+  if (score >= 60) return 'bg-amber-400';
+  if (score >= 35) return 'bg-orange-400';
+  return 'bg-red-400';
+};
+
 export function CrmConsole({ workspaceId }: { readonly workspaceId: string | null }) {
   const dashboard = useCrmDashboard(workspaceId);
   const accounts = useCrmAccounts(workspaceId);
@@ -37,6 +62,85 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
   const createAccount = useCreateCrmAccount(workspaceId);
   const createLead = useCreateCrmLead(workspaceId);
   const convertLead = useConvertCrmLead(workspaceId);
+  const [accountForm, setAccountForm] = useState({
+    name: '',
+    status: 'prospect' as AccountStatus,
+    healthScore: '',
+    lifecycleStage: '',
+    domain: '',
+    tags: '',
+  });
+  const [leadForm, setLeadForm] = useState({
+    companyName: '',
+    contactName: '',
+    email: '',
+    score: '',
+    estimatedValue: '',
+    source: '',
+    tags: '',
+  });
+
+  const handleCreateAccount = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = accountForm.name.trim();
+    if (!name || createAccount.isPending) return;
+    const healthScore = toOptionalNumber(accountForm.healthScore);
+
+    createAccount.mutate(
+      {
+        name,
+        status: accountForm.status,
+        domain: accountForm.domain.trim() || null,
+        lifecycleStage: accountForm.lifecycleStage.trim() || 'sales',
+        tags: toTags(accountForm.tags),
+        ...(healthScore === undefined ? {} : { healthScore }),
+      },
+      {
+        onSuccess: () =>
+          setAccountForm({
+            name: '',
+            status: 'prospect',
+            healthScore: '',
+            lifecycleStage: '',
+            domain: '',
+            tags: '',
+          }),
+      },
+    );
+  };
+
+  const handleCreateLead = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const companyName = leadForm.companyName.trim();
+    const contactName = leadForm.contactName.trim();
+    const email = leadForm.email.trim();
+    if (!companyName || !contactName || !email || createLead.isPending) return;
+    const score = toOptionalNumber(leadForm.score);
+    const estimatedValue = toOptionalNumber(leadForm.estimatedValue);
+
+    const input: CreateCrmLeadInput = {
+      companyName,
+      contactName,
+      email,
+      source: leadForm.source.trim() || null,
+      tags: toTags(leadForm.tags),
+      ...(score === undefined ? {} : { score }),
+      ...(estimatedValue === undefined ? {} : { estimatedValue }),
+    };
+
+    createLead.mutate(input, {
+      onSuccess: () =>
+        setLeadForm({
+          companyName: '',
+          contactName: '',
+          email: '',
+          score: '',
+          estimatedValue: '',
+          source: '',
+          tags: '',
+        }),
+    });
+  };
 
   if (!workspaceId) {
     return (
@@ -85,35 +189,101 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
                 Organizations and customer health.
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              loading={createAccount.isPending}
-              onClick={() =>
-                createAccount.mutate({
-                  name: `Account ${new Date().toLocaleTimeString()}`,
-                  status: 'prospect',
-                  healthScore: 75,
-                  lifecycleStage: 'sales',
-                })
+          </div>
+          <form
+            onSubmit={handleCreateAccount}
+            className="mb-4 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 sm:grid-cols-2"
+          >
+            <Input
+              label="Account name"
+              value={accountForm.name}
+              onChange={(event) =>
+                setAccountForm((form) => ({ ...form, name: event.target.value }))
               }
+              placeholder="Acme Inc."
+              required
+            />
+            <label className="block min-w-0 space-y-2">
+              <span className="text-sm font-medium text-[var(--app-text)]">Status</span>
+              <select
+                value={accountForm.status}
+                onChange={(event) =>
+                  setAccountForm((form) => ({
+                    ...form,
+                    status: event.target.value as AccountStatus,
+                  }))
+                }
+                className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+              >
+                {(['prospect', 'customer', 'partner', 'former'] satisfies AccountStatus[]).map(
+                  (status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <Input
+              label="Health score"
+              type="number"
+              min={0}
+              max={100}
+              value={accountForm.healthScore}
+              onChange={(event) =>
+                setAccountForm((form) => ({ ...form, healthScore: event.target.value }))
+              }
+              placeholder="0-100"
+            />
+            <Input
+              label="Lifecycle"
+              value={accountForm.lifecycleStage}
+              onChange={(event) =>
+                setAccountForm((form) => ({ ...form, lifecycleStage: event.target.value }))
+              }
+              placeholder="sales, onboarding, renewal"
+            />
+            <Input
+              label="Domain"
+              value={accountForm.domain}
+              onChange={(event) =>
+                setAccountForm((form) => ({ ...form, domain: event.target.value }))
+              }
+              placeholder="acme.com"
+            />
+            <Input
+              label="Tags"
+              value={accountForm.tags}
+              onChange={(event) =>
+                setAccountForm((form) => ({ ...form, tags: event.target.value }))
+              }
+              placeholder="enterprise, priority"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="sm:col-span-2"
+              loading={createAccount.isPending}
+              disabled={!accountForm.name.trim() || createAccount.isPending}
             >
               Add account
             </Button>
-          </div>
+          </form>
           <div className="space-y-3">
             {(accounts.data ?? []).slice(0, 6).map((account) => (
               <div key={account.id} className="rounded-md border border-[var(--app-border)] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-[var(--app-text)]">{account.name}</p>
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <p className="truncate text-sm font-medium text-[var(--app-text)]">
+                    {account.name}
+                  </p>
                   <span className="text-xs capitalize text-[var(--app-muted)]">
                     {account.healthStatus.replace('_', ' ')}
                   </span>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-panel-soft)]">
                   <div
-                    className="h-full rounded-full bg-emerald-400"
-                    style={{ width: `${account.healthScore}%` }}
+                    className={`h-full rounded-full ${healthBarClass(account.healthScore)}`}
+                    style={{ width: `${Math.max(0, Math.min(100, account.healthScore))}%` }}
                   />
                 </div>
               </div>
@@ -132,23 +302,83 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
                 Qualification queue and conversion.
               </p>
             </div>
+          </div>
+          <form
+            onSubmit={handleCreateLead}
+            className="mb-4 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 sm:grid-cols-2"
+          >
+            <Input
+              label="Company"
+              value={leadForm.companyName}
+              onChange={(event) =>
+                setLeadForm((form) => ({ ...form, companyName: event.target.value }))
+              }
+              placeholder="Acme Inc."
+              required
+            />
+            <Input
+              label="Contact"
+              value={leadForm.contactName}
+              onChange={(event) =>
+                setLeadForm((form) => ({ ...form, contactName: event.target.value }))
+              }
+              placeholder="Jane Cooper"
+              required
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={leadForm.email}
+              onChange={(event) => setLeadForm((form) => ({ ...form, email: event.target.value }))}
+              placeholder="jane@acme.com"
+              required
+            />
+            <Input
+              label="Source"
+              value={leadForm.source}
+              onChange={(event) => setLeadForm((form) => ({ ...form, source: event.target.value }))}
+              placeholder="Website, referral"
+            />
+            <Input
+              label="Score"
+              type="number"
+              min={0}
+              max={100}
+              value={leadForm.score}
+              onChange={(event) => setLeadForm((form) => ({ ...form, score: event.target.value }))}
+              placeholder="0-100"
+            />
+            <Input
+              label="Estimated value"
+              type="number"
+              min={0}
+              value={leadForm.estimatedValue}
+              onChange={(event) =>
+                setLeadForm((form) => ({ ...form, estimatedValue: event.target.value }))
+              }
+              placeholder="12000"
+            />
+            <Input
+              label="Tags"
+              value={leadForm.tags}
+              onChange={(event) => setLeadForm((form) => ({ ...form, tags: event.target.value }))}
+              placeholder="inbound, smb"
+            />
             <Button
-              type="button"
+              type="submit"
               size="sm"
+              className="sm:self-end"
               loading={createLead.isPending}
-              onClick={() =>
-                createLead.mutate({
-                  companyName: `Lead ${new Date().toLocaleTimeString()}`,
-                  contactName: 'New Buyer',
-                  email: `lead-${Date.now()}@example.com`,
-                  score: 70,
-                  estimatedValue: 12000,
-                })
+              disabled={
+                !leadForm.companyName.trim() ||
+                !leadForm.contactName.trim() ||
+                !leadForm.email.trim() ||
+                createLead.isPending
               }
             >
               Add lead
             </Button>
-          </div>
+          </form>
           <div className="space-y-3">
             {(leads.data ?? []).slice(0, 6).map((lead) => (
               <div key={lead.id} className="rounded-md border border-[var(--app-border)] p-3">
@@ -163,9 +393,11 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
                     type="button"
                     size="sm"
                     variant="secondary"
-                    disabled={lead.status === 'converted'}
+                    disabled={lead.status === 'converted' || convertLead.isPending}
                     loading={convertLead.isPending}
-                    onClick={() => convertLead.mutate(lead.id)}
+                    onClick={() => {
+                      if (!convertLead.isPending) convertLead.mutate(lead.id);
+                    }}
                   >
                     Convert
                   </Button>

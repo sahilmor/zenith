@@ -106,6 +106,11 @@ export const acceptInvitation: RequestHandler = asyncHandler(async (request, res
   sendSuccess(response, 200, 'Invitation accepted', workspace);
 });
 
+export const previewInvitation: RequestHandler = asyncHandler(async (request, response) => {
+  const invitation = await workspaceService.previewInvitation(request.params.token ?? '');
+  sendSuccess(response, 200, 'Invitation retrieved', invitation);
+});
+
 export const leaveWorkspace: RequestHandler = asyncHandler(async (request, response) => {
   await workspaceService.leaveWorkspace(
     paramObjectId(request.params.workspaceId),

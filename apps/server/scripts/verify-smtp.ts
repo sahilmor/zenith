@@ -9,11 +9,28 @@ function getRequiredEnv(key: (typeof requiredKeys)[number]): string {
   return value;
 }
 
+function extractEmailAddress(value: string): string {
+  const trimmed = value.trim();
+  const angleMatch = /^.+?\s*<([^<>]+)>$/.exec(trimmed);
+  return (angleMatch?.[1] ?? trimmed).toLowerCase();
+}
+
+function assertProviderCompatibleSender(): void {
+  const host = getRequiredEnv('SMTP_HOST').toLowerCase();
+  const fromAddress = extractEmailAddress(getRequiredEnv('SMTP_FROM'));
+  if (host.includes('resend.com') && fromAddress.endsWith('@gmail.com')) {
+    throw new Error(
+      'Resend SMTP cannot send from gmail.com. Use SMTP_FROM with a verified Resend domain, e.g. Zenith <no-reply@yourdomain.com>, or switch SMTP_HOST to smtp.gmail.com with a Gmail app password.',
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const missing = requiredKeys.filter((key) => !process.env[key]?.trim());
   if (missing.length > 0) {
     throw new Error(`Missing SMTP environment variables: ${missing.join(', ')}`);
   }
+  assertProviderCompatibleSender();
 
   const port = Number(getRequiredEnv('SMTP_PORT'));
   if (!Number.isInteger(port) || port <= 0) {

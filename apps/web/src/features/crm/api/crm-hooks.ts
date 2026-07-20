@@ -112,7 +112,14 @@ export function useCreateCrmAccount(workspaceId: string | null | undefined) {
         method: 'POST',
         body: { tags: [], customFields: [], ...input },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', workspaceId] }),
+    onSuccess: (account) => {
+      queryClient.setQueryData<CrmAccountSummary[]>(crmKeys.accounts(workspaceId), (current) => {
+        if (!current) return [account];
+        if (current.some((item) => item.id === account.id)) return current;
+        return [account, ...current];
+      });
+      queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
+    },
   });
 }
 
@@ -130,7 +137,14 @@ export function useCreateCrmLead(workspaceId: string | null | undefined) {
         method: 'POST',
         body: { tags: [], customFields: [], ...input },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', workspaceId] }),
+    onSuccess: (lead) => {
+      queryClient.setQueryData<CrmLeadSummary[]>(crmKeys.leads(workspaceId), (current) => {
+        if (!current) return [lead];
+        if (current.some((item) => item.id === lead.id)) return current;
+        return [lead, ...current];
+      });
+      queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
+    },
   });
 }
 
@@ -148,7 +162,14 @@ export function useCreateCrmDeal(workspaceId: string | null | undefined) {
         method: 'POST',
         body: { tags: [], customFields: [], ...input },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', workspaceId] }),
+    onSuccess: (deal) => {
+      queryClient.setQueryData<CrmDealSummary[]>(crmKeys.deals(workspaceId), (current) => {
+        if (!current) return [deal];
+        if (current.some((item) => item.id === deal.id)) return current;
+        return [deal, ...current];
+      });
+      queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
+    },
   });
 }
 
@@ -167,7 +188,25 @@ export function useConvertCrmLead(workspaceId: string | null | undefined) {
         contact: CrmContactSummary;
         deal: CrmDealSummary;
       }>(`/api/crm/leads/${leadId}/convert`, { method: 'POST' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', workspaceId] }),
+    onSuccess: ({ account, contact, deal }) => {
+      queryClient.setQueryData<CrmAccountSummary[]>(crmKeys.accounts(workspaceId), (current) => {
+        if (!current) return [account];
+        if (current.some((item) => item.id === account.id)) return current;
+        return [account, ...current];
+      });
+      queryClient.setQueryData<CrmContactSummary[]>(crmKeys.contacts(workspaceId), (current) => {
+        if (!current) return [contact];
+        if (current.some((item) => item.id === contact.id)) return current;
+        return [contact, ...current];
+      });
+      queryClient.setQueryData<CrmDealSummary[]>(crmKeys.deals(workspaceId), (current) => {
+        if (!current) return [deal];
+        if (current.some((item) => item.id === deal.id)) return current;
+        return [deal, ...current];
+      });
+      queryClient.invalidateQueries({ queryKey: crmKeys.leads(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
+    },
   });
 }
 
@@ -194,6 +233,6 @@ export function useCreateCrmActivity(workspaceId: string | null | undefined) {
         method: 'POST',
         body: input,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm', workspaceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) }),
   });
 }

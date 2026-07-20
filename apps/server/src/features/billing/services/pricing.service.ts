@@ -28,6 +28,9 @@ const allLimitKeys = [
   'crmContacts',
   'crmLeads',
   'crmDeals',
+  'devOpsRepositories',
+  'devOpsPipelines',
+  'devOpsDeployments',
 ] satisfies BillingLimitKey[];
 
 const limits = (values: Partial<Record<BillingLimitKey, number | null>>) =>
@@ -47,7 +50,7 @@ const freePlan: BillingPlanSummary = {
   annualPrice: 0,
   currency: 'usd',
   trialDays: 0,
-  features: ['kanban', 'ai', 'advanced_search', 'resource_planning', 'crm'],
+  features: ['kanban', 'ai', 'advanced_search', 'resource_planning', 'crm', 'devops'],
   limits: limits({
     members: 5,
     projects: 3,
@@ -74,6 +77,9 @@ const freePlan: BillingPlanSummary = {
     crmContacts: 100,
     crmLeads: 100,
     crmDeals: 25,
+    devOpsRepositories: 2,
+    devOpsPipelines: 25,
+    devOpsDeployments: 10,
   }),
   metadata: {},
   createdAt: now,
@@ -110,6 +116,7 @@ export const planCatalog: BillingPlanSummary[] = [
       'documents',
       'resource_planning',
       'crm',
+      'devops',
     ],
     limits: limits({
       members: 25,
@@ -137,6 +144,9 @@ export const planCatalog: BillingPlanSummary[] = [
       crmContacts: 5000,
       crmLeads: 5000,
       crmDeals: 1000,
+      devOpsRepositories: 25,
+      devOpsPipelines: 1000,
+      devOpsDeployments: 250,
     }),
     metadata: {},
     createdAt: now,
@@ -177,6 +187,7 @@ export const planCatalog: BillingPlanSummary[] = [
       'documents',
       'resource_planning',
       'crm',
+      'devops',
     ],
     limits: limits({
       members: 100,
@@ -204,6 +215,9 @@ export const planCatalog: BillingPlanSummary[] = [
       crmContacts: 50000,
       crmLeads: 50000,
       crmDeals: 10000,
+      devOpsRepositories: 250,
+      devOpsPipelines: 25000,
+      devOpsDeployments: 5000,
     }),
     metadata: {},
     createdAt: now,
@@ -244,6 +258,7 @@ export const planCatalog: BillingPlanSummary[] = [
       'documents',
       'resource_planning',
       'crm',
+      'devops',
     ],
     limits: limits({}),
     metadata: { contactSales: 'true' },

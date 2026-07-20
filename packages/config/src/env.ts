@@ -3,7 +3,19 @@ import { z } from 'zod';
 const emptyToUndefined = (value: unknown): unknown => (value === '' ? undefined : value);
 const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
 const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
-const optionalEmail = z.preprocess(emptyToUndefined, z.string().email().optional());
+const emailAddress = z.string().email();
+const mailFromAddress = z.string().refine(
+  (value) => {
+    const trimmed = value.trim();
+    const angleMatch = /^(.+?)\s*<([^<>]+)>$/.exec(trimmed);
+    return emailAddress.safeParse(angleMatch?.[2] ?? trimmed).success;
+  },
+  {
+    message:
+      'Must be an email address or display name with email, e.g. Zenith <no-reply@example.com>',
+  },
+);
+const optionalMailFrom = z.preprocess(emptyToUndefined, mailFromAddress.optional());
 
 export const serverEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -47,7 +59,7 @@ export const serverEnvSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: optionalString,
   SMTP_PASS: optionalString,
-  SMTP_FROM: optionalEmail,
+  SMTP_FROM: optionalMailFrom,
   RESEND_API_KEY: optionalString,
   APP_URL: z.string().url().default('http://localhost:3000'),
   AI_PROVIDER: z.enum(['local', 'openai', 'anthropic', 'gemini']).default('local'),

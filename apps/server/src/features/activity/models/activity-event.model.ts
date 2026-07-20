@@ -83,6 +83,11 @@ const activityEventSchema = new Schema(
         'crm.deal.created',
         'crm.deal.updated',
         'crm.activity.created',
+        'devops.repository.connected',
+        'devops.repository.archived',
+        'devops.commit.ingested',
+        'devops.pull_request.updated',
+        'devops.deployment.updated',
       ],
       index: true,
     },
@@ -168,7 +173,12 @@ export type ActivityEventName =
   | 'crm.lead.converted'
   | 'crm.deal.created'
   | 'crm.deal.updated'
-  | 'crm.activity.created';
+  | 'crm.activity.created'
+  | 'devops.repository.connected'
+  | 'devops.repository.archived'
+  | 'devops.commit.ingested'
+  | 'devops.pull_request.updated'
+  | 'devops.deployment.updated';
 
 export interface CreateActivityEventInput {
   workspaceId: Types.ObjectId;

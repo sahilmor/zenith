@@ -15,6 +15,11 @@ import {
 } from '../../crm/models/crm.model.js';
 import { DocumentPageModel } from '../../documents/models/document-page.model.js';
 import { DocumentSpaceModel } from '../../documents/models/document-space.model.js';
+import {
+  DevOpsDeploymentModel,
+  DevOpsPipelineRunModel,
+  DevOpsRepositoryModel,
+} from '../../devops/models/devops.model.js';
 import { ApiKeyModel } from '../../ops/models/api-key.model.js';
 import { WebhookEndpointModel } from '../../ops/models/webhook-endpoint.model.js';
 import { ProjectModel } from '../../projects/models/project.model.js';
@@ -52,6 +57,9 @@ export class UsageService {
       crmContacts,
       crmLeads,
       crmDeals,
+      devOpsRepositories,
+      devOpsPipelines,
+      devOpsDeployments,
     ] = await Promise.all([
       WorkspaceMemberModel.countDocuments({ workspaceId, status: 'active' }),
       ProjectModel.countDocuments({ workspaceId, status: 'active' }),
@@ -88,6 +96,9 @@ export class UsageService {
       CrmContactModel.countDocuments({ workspaceId, archived: false }),
       CrmLeadModel.countDocuments({ workspaceId, archived: false }),
       CrmDealModel.countDocuments({ workspaceId, archived: false }),
+      DevOpsRepositoryModel.countDocuments({ workspaceId, status: 'active' }),
+      DevOpsPipelineRunModel.countDocuments({ workspaceId }),
+      DevOpsDeploymentModel.countDocuments({ workspaceId }),
     ]);
 
     return {
@@ -116,6 +127,9 @@ export class UsageService {
       crmContacts,
       crmLeads,
       crmDeals,
+      devOpsRepositories,
+      devOpsPipelines,
+      devOpsDeployments,
     };
   }
 }

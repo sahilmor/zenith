@@ -71,6 +71,12 @@ export const acceptInvitationSchema = z.object({
   }),
 });
 
+export const invitationTokenParamsSchema = z.object({
+  params: z.object({
+    token: z.string().trim().min(24),
+  }),
+});
+
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>['body'];
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>['body'];
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>['body'];

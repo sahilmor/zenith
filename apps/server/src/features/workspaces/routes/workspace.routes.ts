@@ -12,6 +12,7 @@ import {
   listInvitations,
   listMembers,
   listWorkspaces,
+  previewInvitation,
   removeMember,
   updateMemberRole,
   updateWorkspace,
@@ -20,6 +21,7 @@ import {
   acceptInvitationSchema,
   createWorkspaceSchema,
   inviteMemberSchema,
+  invitationTokenParamsSchema,
   memberParamsSchema,
   updateMemberRoleSchema,
   updateWorkspaceSchema,
@@ -38,6 +40,11 @@ workspaceRouter.use(verifyToken);
 workspaceRouter.post('/', validate(createWorkspaceSchema), createWorkspace);
 workspaceRouter.get('/', listWorkspaces);
 workspaceRouter.post('/invitations/accept', validate(acceptInvitationSchema), acceptInvitation);
+workspaceRouter.get(
+  '/invitations/:token',
+  validate(invitationTokenParamsSchema),
+  previewInvitation,
+);
 
 workspaceRouter.post('/:workspaceId/projects', validate(createProjectSchema), createProject);
 workspaceRouter.get('/:workspaceId/projects', validate(workspaceProjectParamsSchema), listProjects);

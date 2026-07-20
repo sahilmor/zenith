@@ -45,6 +45,18 @@ const addDays = (date: Date, days: number): Date => {
   return next;
 };
 
+const startOfDay = (date: Date): Date => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const daysBetween = (start: Date, end: Date): number =>
+  Math.floor((startOfDay(end).getTime() - startOfDay(start).getTime()) / 86400000);
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
 function useAdvancedTasks(extraFilters: TaskFilters = {}) {
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const filters = useTaskViewStore((state) => state.filters);
@@ -548,57 +560,110 @@ export function TimelineTaskView() {
   const tasks = query.data?.items ?? [];
   const state = <TaskState isLoading={query.isLoading} isError={query.isError} tasks={tasks} />;
   if (query.isLoading || query.isError || tasks.length === 0) return <>{state}</>;
-  const scale = zoom === 'week' ? 24 : zoom === 'month' ? 10 : 4;
+
+  const windowDays = zoom === 'week' ? 14 : zoom === 'month' ? 45 : 100;
+  const datedTasks = tasks.map((task) => {
+    const start = startOfDay(task.startDate ? new Date(task.startDate) : new Date(task.createdAt));
+    const due = startOfDay(task.dueDate ? new Date(task.dueDate) : addDays(start, 1));
+    const end = due < start ? start : due;
+    return { task, start, end };
+  });
+  const earliestStart = datedTasks.reduce<Date>(
+    (earliest, item) => (item.start < earliest ? item.start : earliest),
+    startOfDay(new Date()),
+  );
+  const todayAnchor = addDays(startOfDay(new Date()), -7);
+  const windowStart = earliestStart < todayAnchor ? earliestStart : todayAnchor;
+  const ticks = Array.from({ length: zoom === 'quarter' ? 6 : 5 }, (_, index) => {
+    const offset = Math.round((index * windowDays) / (zoom === 'quarter' ? 5 : 4));
+    return addDays(windowStart, offset);
+  });
+
   return (
-    <Card className="rounded-lg p-4">
-      <div className="mb-4 flex gap-2">
-        {(['week', 'month', 'quarter'] as const).map((item) => (
-          <Button
-            key={item}
-            variant={zoom === item ? 'primary' : 'secondary'}
-            onClick={() => setZoom(item)}
-          >
-            {item}
-          </Button>
-        ))}
-      </div>
-      <div className="space-y-3 overflow-x-auto pb-2">
-        {tasks.map((task) => {
-          const start = task.startDate ? new Date(task.startDate) : new Date(task.createdAt);
-          const end = task.dueDate ? new Date(task.dueDate) : addDays(start, 1);
-          const offset = Math.max(0, Math.floor((start.getTime() - Date.now()) / 86400000) + 30);
-          const width = Math.max(2, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1);
-          return (
-            <div
-              key={task.id}
-              className="grid min-w-[900px] grid-cols-[220px_1fr] items-center gap-3"
+    <Card className="overflow-hidden rounded-lg p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--app-text)]">Timeline</h2>
+          <p className="mt-1 text-xs text-[var(--app-muted)]">
+            Showing {windowDays} days from{' '}
+            {windowStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {(['week', 'month', 'quarter'] as const).map((item) => (
+            <Button
+              key={item}
+              size="sm"
+              variant={zoom === item ? 'primary' : 'secondary'}
+              onClick={() => setZoom(item)}
             >
-              <div>
-                <p className="truncate text-sm font-medium">{task.title}</p>
-                <div className="mt-1 flex gap-2">
-                  <DateCell
-                    value={task.startDate}
-                    onChange={(startDate) =>
-                      updateTask.mutate({ taskId: task.id, input: { startDate } })
-                    }
-                  />
-                  <DateCell
-                    value={task.dueDate}
-                    onChange={(dueDate) =>
-                      updateTask.mutate({ taskId: task.id, input: { dueDate } })
-                    }
+              {item}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto pb-2">
+        <div className="min-w-[720px] space-y-2">
+          <div className="grid grid-cols-[220px_minmax(0,1fr)] items-end gap-3 border-b border-[var(--app-border)] pb-2 text-xs text-[var(--app-muted)]">
+            <span>Task</span>
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${ticks.length}, 1fr)` }}>
+              {ticks.map((tick) => (
+                <span key={tick.toISOString()}>
+                  {tick.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+              ))}
+            </div>
+          </div>
+          {datedTasks.map(({ task, start, end }) => {
+            const offsetDays = daysBetween(windowStart, start);
+            const durationDays = Math.max(1, daysBetween(start, end) + 1);
+            const left = clamp((offsetDays / windowDays) * 100, 0, 98);
+            const width = clamp((durationDays / windowDays) * 100, 4, 100 - left);
+            return (
+              <div
+                key={task.id}
+                className="grid grid-cols-[220px_minmax(0,1fr)] items-center gap-3 rounded-lg border border-transparent px-2 py-2 hover:border-[var(--app-border)] hover:bg-[var(--app-panel-soft)]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[var(--app-text)]">
+                    {task.title}
+                  </p>
+                  <div className="mt-1 flex gap-2">
+                    <DateCell
+                      value={task.startDate}
+                      onChange={(startDate) =>
+                        updateTask.mutate({ taskId: task.id, input: { startDate } })
+                      }
+                    />
+                    <DateCell
+                      value={task.dueDate}
+                      onChange={(dueDate) =>
+                        updateTask.mutate({ taskId: task.id, input: { dueDate } })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="relative h-12 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)]">
+                  {ticks.map((tick, index) => (
+                    <span
+                      key={tick.toISOString()}
+                      className="absolute top-0 h-full border-l border-[var(--app-border)]"
+                      style={{ left: `${(index / Math.max(1, ticks.length - 1)) * 100}%` }}
+                    />
+                  ))}
+                  <div
+                    className={`absolute top-2 z-10 flex h-8 min-w-12 items-center rounded-lg px-3 text-xs font-medium shadow-sm ${
+                      isOverdue(task)
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950'
+                    }`}
+                    style={{ left: `${left}%`, width: `${width}%` }}
                   />
                 </div>
               </div>
-              <div className="relative h-10 rounded-lg bg-white/[0.04]">
-                <div
-                  className={`absolute top-1 h-8 rounded-lg ${isOverdue(task) ? 'bg-red-400' : 'bg-emerald-400'}`}
-                  style={{ left: `${offset * scale}px`, width: `${width * scale}px` }}
-                />
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </Card>
   );
