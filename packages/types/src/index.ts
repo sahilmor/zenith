@@ -15,14 +15,7 @@ export type WorkspacePlan = 'free' | 'pro' | 'business' | 'enterprise';
 export type BillingInterval = 'monthly' | 'annual';
 export type BillingProvider = 'local' | 'stripe';
 export type SubscriptionStatus =
-  | 'trialing'
-  | 'active'
-  | 'past_due'
-  | 'unpaid'
-  | 'canceled'
-  | 'incomplete'
-  | 'incomplete_expired'
-  | 'paused';
+  'trialing' | 'active' | 'past_due' | 'grace_period' | 'suspended' | 'canceled' | 'expired';
 export type BillingFeature =
   | 'kanban'
   | 'calendar'

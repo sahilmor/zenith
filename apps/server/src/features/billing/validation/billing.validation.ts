@@ -18,6 +18,15 @@ export const checkoutSchema = z.object({
   }),
 });
 
+export const planChangeSchema = z.object({
+  params: z.object({ workspaceId: objectId }),
+  body: z.object({
+    planCode: z.string().min(1).max(64),
+    billingInterval: z.enum(['monthly', 'annual']),
+  }),
+});
+export type PlanChangeInput = z.infer<typeof planChangeSchema>['body'];
+
 export const billingWebhookSchema = z.object({
   params: z.object({
     provider: z.enum(['local', 'stripe']),

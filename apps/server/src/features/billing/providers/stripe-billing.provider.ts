@@ -215,18 +215,11 @@ const normalizePlanCode = (value: string | null): WorkspacePlan => {
 };
 
 const normalizeStripeStatus = (value: string | null): SubscriptionStatus => {
-  if (
-    value === 'trialing' ||
-    value === 'active' ||
-    value === 'past_due' ||
-    value === 'unpaid' ||
-    value === 'canceled' ||
-    value === 'incomplete' ||
-    value === 'incomplete_expired' ||
-    value === 'paused'
-  ) {
+  if (value === 'trialing' || value === 'active' || value === 'past_due' || value === 'canceled')
     return value;
-  }
+  if (value === 'unpaid') return 'grace_period';
+  if (value === 'paused' || value === 'incomplete') return 'suspended';
+  if (value === 'incomplete_expired') return 'expired';
   return 'active';
 };
 

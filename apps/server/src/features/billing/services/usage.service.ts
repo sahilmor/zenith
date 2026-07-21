@@ -30,8 +30,65 @@ import { PortfolioModel } from '../../strategic/models/portfolio.model.js';
 import { AttachmentModel } from '../../tasks/models/attachment.model.js';
 import { TaskModel } from '../../tasks/models/task.model.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
+import { UsageCounterModel, UsageSnapshotModel } from '../models/billing-foundation.model.js';
 
 export class UsageService {
+  public async increment(
+    workspaceId: Types.ObjectId,
+    metric: string,
+    amount = 1,
+    period = 'monthly',
+  ): Promise<number> {
+    const counter = await UsageCounterModel.findOneAndUpdate(
+      { workspaceId, metric, period },
+      { $inc: { value: amount } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+    return counter.value;
+  }
+
+  public async decrement(
+    workspaceId: Types.ObjectId,
+    metric: string,
+    amount = 1,
+    period = 'monthly',
+  ): Promise<number> {
+    const current = await UsageCounterModel.findOne({ workspaceId, metric, period }).exec();
+    const value = Math.max(0, (current?.value ?? 0) - amount);
+    await UsageCounterModel.updateOne(
+      { workspaceId, metric, period },
+      { $set: { value } },
+      { upsert: true },
+    ).exec();
+    return value;
+  }
+
+  public async resetMonthlyCounters(workspaceId: Types.ObjectId, at = new Date()): Promise<void> {
+    await this.createSnapshot(workspaceId, at);
+    await UsageCounterModel.updateMany(
+      { workspaceId, period: 'monthly' },
+      { $set: { value: 0, lastResetAt: at } },
+    ).exec();
+  }
+
+  public async createSnapshot(workspaceId: Types.ObjectId, at = new Date()) {
+    const metrics = await this.getWorkspaceUsage(workspaceId);
+    return UsageSnapshotModel.create({
+      workspaceId,
+      capturedAt: at,
+      period: at.toISOString().slice(0, 7),
+      metrics: new Map(Object.entries(metrics)),
+    });
+  }
+
+  public listSnapshots(workspaceId: Types.ObjectId, limit = 24) {
+    return UsageSnapshotModel.find({ workspaceId })
+      .sort({ capturedAt: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+  }
+
   public async getWorkspaceUsage(workspaceId: Types.ObjectId): Promise<BillingUsage> {
     const [
       members,
@@ -101,17 +158,19 @@ export class UsageService {
       DevOpsDeploymentModel.countDocuments({ workspaceId }),
     ]);
 
+    const counters = await UsageCounterModel.find({ workspaceId }).lean().exec();
+    const tracked = Object.fromEntries(counters.map((counter) => [counter.metric, counter.value]));
     return {
       members,
       projects,
       boards,
       tasks,
       storageBytes: storage[0]?.total ?? 0,
-      aiRequests: 0,
+      aiRequests: tracked.aiRequests ?? 0,
       automations,
       apiKeys,
       webhooks,
-      reportExports: 0,
+      reportExports: tracked.reportExports ?? 0,
       goals,
       initiatives,
       portfolios,

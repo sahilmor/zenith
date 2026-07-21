@@ -19,16 +19,23 @@ export class BillingLimitError extends AppError {
     limit?: number | null;
     plan: WorkspacePlan;
   }) {
-    super('Plan limit reached', 403, [
-      {
-        code: 'PLAN_LIMIT_REACHED',
-        feature: input.feature,
-        currentUsage: input.currentUsage ?? null,
-        limit: input.limit ?? null,
-        plan: input.plan,
-        upgradeRequired: true,
-      },
-    ]);
+    const label = String(input.feature)
+      .replace(/([A-Z])/g, ' $1')
+      .toLowerCase();
+    super(
+      `Plan limit reached: You have reached the maximum number of ${label} allowed on your current plan.`,
+      403,
+      [
+        {
+          code: 'PLAN_LIMIT_REACHED',
+          feature: input.feature,
+          currentUsage: input.currentUsage ?? null,
+          limit: input.limit ?? null,
+          plan: input.plan,
+          upgradeRequired: true,
+        },
+      ],
+    );
   }
 }
 
@@ -39,7 +46,7 @@ export class EntitlementService {
     workspaceId: Types.ObjectId,
   ): Promise<WorkspaceEntitlementSummary> {
     const subscription = await this.subscriptions.ensureFree(workspaceId);
-    const plan = pricingService.getPlan(subscription.planCode as WorkspacePlan);
+    const plan = await pricingService.getPlan(subscription.planCode as WorkspacePlan);
     const usage = await usageService.getWorkspaceUsage(workspaceId);
     const features = Object.fromEntries(
       plan.features.map((feature) => [feature, true]),
@@ -64,7 +71,7 @@ export class EntitlementService {
 
   public async requireFeature(workspaceId: Types.ObjectId, feature: BillingFeature): Promise<void> {
     const subscription = await this.subscriptions.ensureFree(workspaceId);
-    if (!pricingService.hasFeature(subscription.planCode as WorkspacePlan, feature)) {
+    if (!(await pricingService.hasFeature(subscription.planCode as WorkspacePlan, feature))) {
       throw new BillingLimitError({ feature, plan: subscription.planCode as WorkspacePlan });
     }
   }
@@ -75,7 +82,7 @@ export class EntitlementService {
     increment = 1,
   ): Promise<void> {
     const subscription = await this.subscriptions.ensureFree(workspaceId);
-    const plan = pricingService.getPlan(subscription.planCode as WorkspacePlan);
+    const plan = await pricingService.getPlan(subscription.planCode as WorkspacePlan);
     const limit = plan.limits[key];
     if (limit === null) return;
     const usage: BillingUsage = await usageService.getWorkspaceUsage(workspaceId);

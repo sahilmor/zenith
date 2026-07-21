@@ -14,8 +14,12 @@ import { BillingProviderRegistry } from '../providers/provider-registry.js';
 import { entitlementService } from './entitlement.service.js';
 import { pricingService } from './pricing.service.js';
 import { subscriptionService } from './subscription.service.js';
-
-const billingRoles = new Set(['owner', 'admin'] as const);
+import {
+  BillingRoleModel,
+  PlanChangeModel,
+  SubscriptionHistoryModel,
+  TrialModel,
+} from '../models/billing-foundation.model.js';
 
 export class BillingService {
   public constructor(
@@ -38,7 +42,7 @@ export class BillingService {
     const entitlements = await entitlementService.getWorkspaceEntitlements(workspaceId);
     return {
       workspaceId: workspaceId.toString(),
-      plan: pricingService.getPlan(subscription.planCode as WorkspacePlan),
+      plan: await pricingService.getPlan(subscription.planCode as WorkspacePlan),
       subscription: subscriptionService.toSubscriptionSummary(subscription),
       entitlements,
       billingEnabled: env.BILLING_ENABLED,
@@ -48,6 +52,64 @@ export class BillingService {
   public async getUsage(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
     await this.requireBillingReadAccess(workspaceId, userId);
     return entitlementService.getWorkspaceEntitlements(workspaceId);
+  }
+
+  public async getHistory(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
+    await this.requireBillingReadAccess(workspaceId, userId);
+    return SubscriptionHistoryModel.find({ workspaceId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+      .exec();
+  }
+
+  public async getTrial(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
+    await this.requireBillingReadAccess(workspaceId, userId);
+    return TrialModel.findOne({ workspaceId }).lean().exec();
+  }
+
+  public async requestPlanChange(input: {
+    workspaceId: Types.ObjectId;
+    userId: Types.ObjectId;
+    planCode: WorkspacePlan;
+    billingInterval: BillingInterval;
+    type: 'upgrade' | 'downgrade';
+  }) {
+    await this.requireBillingWriteAccess(input.workspaceId, input.userId);
+    const subscription = await this.subscriptions.ensureFree(input.workspaceId);
+    const target = await pricingService.getPlan(input.planCode);
+    if (target.code === subscription.planCode)
+      throw new ForbiddenError('Workspace is already on this plan');
+    const effectiveAt =
+      input.type === 'downgrade' ? (subscription.currentPeriodEnd ?? new Date()) : new Date();
+    const change = await PlanChangeModel.create({
+      workspaceId: input.workspaceId,
+      subscriptionId: subscription._id,
+      fromPlanCode: subscription.planCode,
+      toPlanCode: target.code,
+      type: input.type,
+      effectiveAt,
+      requestedBy: input.userId,
+    });
+    await auditLogService.record({
+      actorId: input.userId,
+      workspaceId: input.workspaceId,
+      targetType: 'plan_change',
+      targetId: change.id,
+      action: `billing.${input.type}_requested`,
+      metadata: { fromPlan: subscription.planCode, toPlan: target.code, effectiveAt },
+    });
+    return {
+      id: change.id,
+      type: input.type,
+      fromPlanCode: subscription.planCode,
+      toPlanCode: target.code,
+      billingInterval: input.billingInterval,
+      effectiveAt: effectiveAt.toISOString(),
+      amount: input.billingInterval === 'monthly' ? target.monthlyPrice : target.annualPrice,
+      currency: target.currency,
+      checkoutRequired: input.type === 'upgrade' && (target.monthlyPrice ?? 0) > 0,
+    };
   }
 
   public async listInvoices(
@@ -77,7 +139,7 @@ export class BillingService {
     await this.requireBillingWriteAccess(input.workspaceId, input.userId);
     const workspace = await this.workspaces.findWorkspaceById(input.workspaceId);
     if (!workspace) throw new NotFoundError('Workspace not found');
-    const plan = pricingService.getPlan(input.planCode);
+    const plan = await pricingService.getPlan(input.planCode);
     if (plan.code === 'free' || plan.code === 'enterprise') {
       throw new ForbiddenError('This plan cannot be purchased through checkout');
     }
@@ -138,14 +200,14 @@ export class BillingService {
     const current = await this.subscriptions.ensureFree(workspaceId);
     const providerResult = current.providerSubscriptionId
       ? await this.providers
-          .getProvider(current.provider)
+          .getProvider(current.provider as 'local' | 'stripe')
           .cancelSubscription(current.providerSubscriptionId)
       : null;
     const result = providerResult
       ? await subscriptionService.syncSubscription({
           ...providerResult,
           workspaceId,
-          provider: current.provider,
+          provider: current.provider as 'local' | 'stripe',
         })
       : await subscriptionService.scheduleCancellation(workspaceId);
     await auditLogService.record({
@@ -163,14 +225,14 @@ export class BillingService {
     const current = await this.subscriptions.ensureFree(workspaceId);
     const providerResult = current.providerSubscriptionId
       ? await this.providers
-          .getProvider(current.provider)
+          .getProvider(current.provider as 'local' | 'stripe')
           .reactivateSubscription(current.providerSubscriptionId)
       : null;
     const result = providerResult
       ? await subscriptionService.syncSubscription({
           ...providerResult,
           workspaceId,
-          provider: current.provider,
+          provider: current.provider as 'local' | 'stripe',
         })
       : await subscriptionService.reactivate(workspaceId);
     await auditLogService.record({
@@ -188,7 +250,8 @@ export class BillingService {
     userId: Types.ObjectId,
   ): Promise<void> {
     const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active')
+    const billingRole = await BillingRoleModel.findOne({ workspaceId, userId }).lean().exec();
+    if ((!membership || membership.status !== 'active') && !billingRole)
       throw new ForbiddenError('Billing access denied');
   }
 
@@ -197,12 +260,15 @@ export class BillingService {
     userId: Types.ObjectId,
   ): Promise<void> {
     const membership = await this.workspaces.findMembership(workspaceId, userId);
+    const billingRole = await BillingRoleModel.findOne({ workspaceId, userId }).lean().exec();
     if (
       !membership ||
       membership.status !== 'active' ||
-      !billingRoles.has(membership.role as 'owner' | 'admin')
+      !(membership.role === 'owner' || billingRole?.role === 'billing_admin')
     ) {
-      throw new ForbiddenError('Billing changes require workspace owner or admin access');
+      throw new ForbiddenError(
+        'Billing changes require workspace owner or billing administrator access',
+      );
     }
   }
 }

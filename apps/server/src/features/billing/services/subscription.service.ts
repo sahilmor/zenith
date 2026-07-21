@@ -3,6 +3,8 @@ import type { Types } from 'mongoose';
 import { env } from '../../../config/env.js';
 import type { SubscriptionDocument } from '../models/subscription.model.js';
 import { SubscriptionRepository } from '../repositories/billing.repository.js';
+import { SubscriptionHistoryModel, TrialModel } from '../models/billing-foundation.model.js';
+import { auditLogService } from '../../ops/services/audit-log.service.js';
 
 export class SubscriptionService {
   public constructor(private readonly subscriptions = new SubscriptionRepository()) {}
@@ -31,6 +33,7 @@ export class SubscriptionService {
     gracePeriodEndsAt?: Date | null;
     metadata?: Record<string, string>;
   }): Promise<WorkspaceSubscriptionSummary> {
+    const previous = await this.subscriptions.findByWorkspace(input.workspaceId);
     const subscription = await this.subscriptions.upsertByWorkspace(input.workspaceId, {
       provider: input.provider,
       providerCustomerId: input.providerCustomerId ?? null,
@@ -50,6 +53,48 @@ export class SubscriptionService {
       gracePeriodEndsAt: input.gracePeriodEndsAt ?? null,
       metadata: new Map(Object.entries(input.metadata ?? {})),
     });
+    if (
+      !previous ||
+      previous.status !== subscription.status ||
+      previous.planCode !== subscription.planCode
+    ) {
+      await SubscriptionHistoryModel.create({
+        workspaceId: input.workspaceId,
+        subscriptionId: subscription._id,
+        fromStatus: previous?.status ?? null,
+        toStatus: subscription.status,
+        fromPlanCode: previous?.planCode ?? null,
+        toPlanCode: subscription.planCode,
+        reason: 'subscription_sync',
+      });
+      await auditLogService.record({
+        workspaceId: input.workspaceId,
+        targetType: 'subscription',
+        targetId: subscription.id,
+        action: 'billing.subscription_transition',
+        metadata: {
+          fromStatus: previous?.status ?? null,
+          toStatus: subscription.status,
+          fromPlan: previous?.planCode ?? null,
+          toPlan: subscription.planCode,
+        },
+      });
+    }
+    if (subscription.status === 'trialing' && subscription.trialStart && subscription.trialEnd) {
+      await TrialModel.updateOne(
+        { workspaceId: input.workspaceId },
+        {
+          $setOnInsert: {
+            subscriptionId: subscription._id,
+            planCode: subscription.planCode,
+            startedAt: subscription.trialStart,
+            endsAt: subscription.trialEnd,
+            status: 'active',
+          },
+        },
+        { upsert: true },
+      );
+    }
     return this.toSubscriptionSummary(subscription);
   }
 

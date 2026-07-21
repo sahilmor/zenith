@@ -1,4 +1,10 @@
 import type { BillingFeature, BillingLimitKey, BillingPlanSummary, WorkspacePlan } from '@pm/types';
+import {
+  FeatureDefinitionModel,
+  PlanEntitlementModel,
+  PlanModel,
+  type PlanDocument,
+} from '../models/plan.model.js';
 
 const now = new Date(0).toISOString();
 
@@ -86,7 +92,7 @@ const freePlan: BillingPlanSummary = {
   updatedAt: now,
 };
 
-export const planCatalog: BillingPlanSummary[] = [
+const defaultPlanCatalog: BillingPlanSummary[] = [
   freePlan,
   {
     id: 'plan_pro',
@@ -268,16 +274,110 @@ export const planCatalog: BillingPlanSummary[] = [
 ];
 
 export class PricingService {
-  public listPlans(): BillingPlanSummary[] {
-    return [...planCatalog].sort((left, right) => left.displayOrder - right.displayOrder);
+  private async ensureCatalog(): Promise<void> {
+    if (await PlanModel.exists({})) return;
+    await this.seedCatalog();
   }
 
-  public getPlan(planCode: WorkspacePlan): BillingPlanSummary {
-    return this.listPlans().find((plan) => plan.code === planCode) ?? freePlan;
+  private async seedCatalog(): Promise<void> {
+    for (const plan of defaultPlanCatalog) {
+      const document = await PlanModel.findOneAndUpdate(
+        { code: plan.code },
+        {
+          name: plan.name,
+          description: plan.description,
+          active: plan.active,
+          recommended: plan.code === 'pro',
+          displayOrder: plan.displayOrder,
+          prices: new Map(
+            [
+              ['monthly', plan.monthlyPrice],
+              ['annual', plan.annualPrice],
+            ].filter((entry): entry is [string, number] => entry[1] !== null),
+          ),
+          currency: plan.currency,
+          trialDays: plan.trialDays,
+          metadata: new Map(Object.entries(plan.metadata)),
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      for (const [key, limit] of Object.entries(plan.limits)) {
+        await FeatureDefinitionModel.updateOne(
+          { key },
+          { $setOnInsert: { key, name: key, kind: 'limit' } },
+          { upsert: true },
+        );
+        await PlanEntitlementModel.updateOne(
+          { planId: document._id, featureKey: key },
+          { $setOnInsert: { enabled: true, limit } },
+          { upsert: true },
+        );
+      }
+      for (const key of plan.features) {
+        await FeatureDefinitionModel.updateOne(
+          { key },
+          { $setOnInsert: { key, name: key, kind: 'boolean' } },
+          { upsert: true },
+        );
+        await PlanEntitlementModel.updateOne(
+          { planId: document._id, featureKey: key },
+          { $set: { enabled: true, 'metadata.feature': 'true' }, $setOnInsert: { limit: null } },
+          { upsert: true },
+        );
+      }
+    }
   }
 
-  public hasFeature(planCode: WorkspacePlan, feature: BillingFeature): boolean {
-    return this.getPlan(planCode).features.includes(feature);
+  public async listPlans(): Promise<BillingPlanSummary[]> {
+    await this.ensureCatalog();
+    const plans = await PlanModel.find({ active: true }).sort({ displayOrder: 1 }).exec();
+    return Promise.all(plans.map((plan) => this.toSummary(plan)));
+  }
+
+  public async getPlan(planCode: WorkspacePlan): Promise<BillingPlanSummary> {
+    await this.ensureCatalog();
+    const plan =
+      (await PlanModel.findOne({ code: planCode, active: true }).exec()) ??
+      (await PlanModel.findOne({ code: 'free', active: true }).exec());
+    if (!plan) throw new Error('The billing catalog has no active free plan');
+    return this.toSummary(plan);
+  }
+
+  public async hasFeature(planCode: WorkspacePlan, feature: BillingFeature): Promise<boolean> {
+    const plan = await this.getPlan(planCode);
+    return plan.features.includes(feature);
+  }
+
+  private async toSummary(plan: PlanDocument): Promise<BillingPlanSummary> {
+    const entitlements = await PlanEntitlementModel.find({ planId: plan._id }).lean().exec();
+    const planLimits = limits({});
+    const features: BillingFeature[] = [];
+    for (const item of entitlements) {
+      if (item.limit !== null && item.limit !== undefined && item.featureKey in planLimits) {
+        planLimits[item.featureKey as BillingLimitKey] = item.limit;
+      }
+      const metadata = item.metadata as Map<string, string> | Record<string, string> | undefined;
+      const isFeature =
+        metadata instanceof Map ? metadata.get('feature') === 'true' : metadata?.feature === 'true';
+      if (item.enabled && isFeature) features.push(item.featureKey as BillingFeature);
+    }
+    return {
+      id: plan.id,
+      code: plan.code as WorkspacePlan,
+      name: plan.name,
+      description: plan.description,
+      active: plan.active,
+      displayOrder: plan.displayOrder,
+      monthlyPrice: plan.prices?.get('monthly') ?? null,
+      annualPrice: plan.prices?.get('annual') ?? null,
+      currency: plan.currency,
+      trialDays: plan.trialDays,
+      features,
+      limits: planLimits,
+      metadata: Object.fromEntries(plan.metadata ?? new Map()),
+      createdAt: plan.createdAt.toISOString(),
+      updatedAt: plan.updatedAt.toISOString(),
+    };
   }
 }
 

@@ -11,11 +11,16 @@ import {
   listInvoices,
   listPlans,
   reactivateSubscription,
+  getSubscriptionHistory,
+  getTrialInformation,
+  requestUpgrade,
+  requestDowngrade,
 } from '../controllers/billing.controller.js';
 import {
   billingWebhookSchema,
   checkoutSchema,
   workspaceBillingParamsSchema,
+  planChangeSchema,
 } from '../validation/billing.validation.js';
 
 export const billingRouter = Router();
@@ -32,6 +37,26 @@ billingRouter.get(
   '/workspaces/:workspaceId/billing',
   validate(workspaceBillingParamsSchema),
   getWorkspaceBilling,
+);
+billingRouter.get(
+  '/workspaces/:workspaceId/billing/history',
+  validate(workspaceBillingParamsSchema),
+  getSubscriptionHistory,
+);
+billingRouter.get(
+  '/workspaces/:workspaceId/billing/trial',
+  validate(workspaceBillingParamsSchema),
+  getTrialInformation,
+);
+billingRouter.post(
+  '/workspaces/:workspaceId/billing/upgrade',
+  validate(planChangeSchema),
+  requestUpgrade,
+);
+billingRouter.post(
+  '/workspaces/:workspaceId/billing/downgrade',
+  validate(planChangeSchema),
+  requestDowngrade,
 );
 billingRouter.get(
   '/workspaces/:workspaceId/billing/usage',

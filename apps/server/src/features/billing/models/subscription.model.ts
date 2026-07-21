@@ -4,16 +4,13 @@ export const subscriptionStatuses = [
   'trialing',
   'active',
   'past_due',
-  'unpaid',
+  'grace_period',
+  'suspended',
   'canceled',
-  'incomplete',
-  'incomplete_expired',
-  'paused',
+  'expired',
 ] as const;
 
 export const billingIntervals = ['monthly', 'annual'] as const;
-export const billingProviders = ['local', 'stripe'] as const;
-export const billingPlanCodes = ['free', 'pro', 'business', 'enterprise'] as const;
 
 const subscriptionSchema = new Schema(
   {
@@ -24,11 +21,11 @@ const subscriptionSchema = new Schema(
       unique: true,
       index: true,
     },
-    provider: { type: String, enum: billingProviders, default: 'local', index: true },
+    provider: { type: String, default: 'local', index: true },
     providerCustomerId: { type: String, default: null, trim: true, index: true },
     providerSubscriptionId: { type: String, default: null, trim: true, index: true },
     providerPriceId: { type: String, default: null, trim: true },
-    planCode: { type: String, enum: billingPlanCodes, default: 'free', index: true },
+    planCode: { type: String, default: 'free', index: true },
     billingInterval: { type: String, enum: billingIntervals, default: 'monthly' },
     currency: { type: String, default: 'usd', lowercase: true, trim: true },
     status: { type: String, enum: subscriptionStatuses, default: 'active', index: true },
@@ -36,6 +33,7 @@ const subscriptionSchema = new Schema(
     trialEnd: { type: Date, default: null },
     currentPeriodStart: { type: Date, default: null },
     currentPeriodEnd: { type: Date, default: null },
+    renewalDate: { type: Date, default: null },
     cancelAtPeriodEnd: { type: Boolean, default: false },
     canceledAt: { type: Date, default: null },
     endedAt: { type: Date, default: null },

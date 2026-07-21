@@ -5,7 +5,7 @@ import { sendSuccess } from '../../../utils/api-response.js';
 import { asyncHandler } from '../../../utils/async-handler.js';
 import { billingService } from '../services/billing.service.js';
 import { billingWebhookService } from '../services/billing-webhook.service.js';
-import type { CheckoutInput } from '../validation/billing.validation.js';
+import type { CheckoutInput, PlanChangeInput } from '../validation/billing.validation.js';
 
 const requireUserId = (request: Request): Types.ObjectId => {
   if (!request.user) throw new UnauthorizedError('Authentication required');
@@ -18,7 +18,7 @@ const paramObjectId = (value: string | undefined): Types.ObjectId => {
 };
 
 export const listPlans: RequestHandler = asyncHandler(async (_request, response) => {
-  sendSuccess(response, 200, 'Billing plans retrieved', billingService.listPlans());
+  sendSuccess(response, 200, 'Billing plans retrieved', await billingService.listPlans());
 });
 
 export const getWorkspaceBilling: RequestHandler = asyncHandler(async (request, response) => {
@@ -44,6 +44,49 @@ export const getWorkspaceUsage: RequestHandler = asyncHandler(async (request, re
     ),
   );
 });
+
+export const getSubscriptionHistory: RequestHandler = asyncHandler(async (request, response) => {
+  sendSuccess(
+    response,
+    200,
+    'Subscription history retrieved',
+    await billingService.getHistory(
+      paramObjectId(request.params.workspaceId),
+      requireUserId(request),
+    ),
+  );
+});
+
+export const getTrialInformation: RequestHandler = asyncHandler(async (request, response) => {
+  sendSuccess(
+    response,
+    200,
+    'Trial information retrieved',
+    await billingService.getTrial(
+      paramObjectId(request.params.workspaceId),
+      requireUserId(request),
+    ),
+  );
+});
+
+const requestChange = (type: 'upgrade' | 'downgrade'): RequestHandler =>
+  asyncHandler(async (request, response) => {
+    const body = request.body as PlanChangeInput;
+    sendSuccess(
+      response,
+      201,
+      `${type} request created`,
+      await billingService.requestPlanChange({
+        workspaceId: paramObjectId(request.params.workspaceId),
+        userId: requireUserId(request),
+        planCode: body.planCode as 'free' | 'pro' | 'business' | 'enterprise',
+        billingInterval: body.billingInterval,
+        type,
+      }),
+    );
+  });
+export const requestUpgrade = requestChange('upgrade');
+export const requestDowngrade = requestChange('downgrade');
 
 export const listInvoices: RequestHandler = asyncHandler(async (request, response) => {
   sendSuccess(

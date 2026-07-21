@@ -96,7 +96,10 @@ export function CurrentBillingCard({ billing }: Readonly<{ billing: WorkspaceBil
   const cancel = useCancelSubscription(billing.workspaceId);
   const reactivate = useReactivateSubscription(billing.workspaceId);
   const subscription = billing.subscription;
-  const warning = subscription.status === 'past_due' || subscription.status === 'unpaid';
+  const warning =
+    subscription.status === 'past_due' ||
+    subscription.status === 'grace_period' ||
+    subscription.status === 'suspended';
   return (
     <Card className="rounded-lg p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
