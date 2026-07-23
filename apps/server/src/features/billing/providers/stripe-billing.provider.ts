@@ -3,13 +3,37 @@ import type { BillingInterval, SubscriptionStatus, WorkspacePlan } from '@pm/typ
 import { env } from '../../../config/env.js';
 import { BadRequestError, ForbiddenError } from '../../../utils/app-error.js';
 import type {
+  BillingCustomerInput,
+  BillingCustomerResult,
+  BillingOrderInput,
+  BillingOrderResult,
+  BillingPaymentActionInput,
+  BillingPaymentActionResult,
+  BillingPaymentDetailsResult,
+  BillingPaymentVerificationInput,
+  BillingPaymentVerificationResult,
   BillingProvider,
+  BillingRefundInput,
+  BillingRefundResult,
+  BillingSubscriptionInput,
   BillingWebhookPayload,
   CheckoutSessionInput,
   CheckoutSessionResult,
   PortalSessionInput,
   ProviderSubscriptionState,
 } from './billing-provider.js';
+
+interface StripeRequestOptions {
+  readonly method: 'GET' | 'POST';
+  readonly body?: URLSearchParams;
+  readonly errorMessage: string;
+  readonly idempotencyKey?: string;
+}
+
+const withIdempotency = (
+  options: Omit<StripeRequestOptions, 'idempotencyKey'>,
+  idempotencyKey: string | undefined,
+): StripeRequestOptions => (idempotencyKey ? { ...options, idempotencyKey } : options);
 
 const priceIdFor = (planCode: WorkspacePlan, interval: BillingInterval): string | undefined => {
   if (planCode === 'pro' && interval === 'monthly') return env.STRIPE_PRO_MONTHLY_PRICE_ID;
@@ -22,6 +46,148 @@ const priceIdFor = (planCode: WorkspacePlan, interval: BillingInterval): string 
 
 export class StripeBillingProvider implements BillingProvider {
   public readonly id = 'stripe' as const;
+  public async createCustomer(input: BillingCustomerInput): Promise<BillingCustomerResult> {
+    const body = new URLSearchParams({ email: input.email });
+    if (input.name) body.set('name', input.name);
+    if (input.workspaceId) body.set('metadata[workspaceId]', input.workspaceId);
+    appendMetadata(body, input.metadata);
+    const payload = await this.stripeRequest(
+      'https://api.stripe.com/v1/customers',
+      withIdempotency(
+        { method: 'POST', body, errorMessage: 'Unable to create Stripe customer' },
+        input.workspaceId ? `customer_${input.workspaceId}` : undefined,
+      ),
+    );
+    const providerCustomerId = asString(payload.id);
+    if (!providerCustomerId) throw new BadRequestError('Stripe customer id is missing');
+    return {
+      provider: this.id,
+      providerCustomerId,
+      email: asString(payload.email),
+      name: asString(payload.name),
+    };
+  }
+
+  public async createOrder(input: BillingOrderInput): Promise<BillingOrderResult> {
+    const body = new URLSearchParams({
+      amount: String(input.amount),
+      currency: input.currency.toLowerCase(),
+      capture_method: input.captureMethod ?? 'automatic',
+    });
+    if (input.providerCustomerId) body.set('customer', input.providerCustomerId);
+    if (input.description) body.set('description', input.description);
+    if (input.workspaceId) body.set('metadata[workspaceId]', input.workspaceId);
+    appendMetadata(body, input.metadata);
+    const payload = await this.stripeRequest(
+      'https://api.stripe.com/v1/payment_intents',
+      withIdempotency(
+        { method: 'POST', body, errorMessage: 'Unable to create Stripe payment intent' },
+        input.workspaceId
+          ? `order_${input.workspaceId}_${input.amount}_${input.currency}`
+          : undefined,
+      ),
+    );
+    const providerPaymentId = asString(payload.id);
+    if (!providerPaymentId) throw new BadRequestError('Stripe payment id is missing');
+    return {
+      provider: this.id,
+      providerOrderId: providerPaymentId,
+      providerPaymentId,
+      amount: asNumber(payload.amount) ?? input.amount,
+      currency: asString(payload.currency) ?? input.currency.toLowerCase(),
+      status: asString(payload.status) ?? 'unknown',
+      clientSecret: asString(payload.client_secret),
+      checkoutUrl: null,
+    };
+  }
+
+  public async verifyPayment(
+    input: BillingPaymentVerificationInput,
+  ): Promise<BillingPaymentVerificationResult> {
+    const details = await this.retrievePaymentDetails(input.providerPaymentId);
+    return {
+      provider: this.id,
+      providerPaymentId: details.providerPaymentId,
+      providerOrderId: details.providerOrderId,
+      amount: details.amount,
+      currency: details.currency,
+      status: details.status,
+      verified: ['requires_capture', 'processing', 'succeeded'].includes(details.status),
+      captured: details.captured,
+    };
+  }
+
+  public async capturePayment(
+    input: BillingPaymentActionInput,
+  ): Promise<BillingPaymentActionResult> {
+    const body = new URLSearchParams();
+    if (input.amount) body.set('amount_to_capture', String(input.amount));
+    const payload = await this.stripeRequest(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(input.providerPaymentId)}/capture`,
+      { method: 'POST', body, errorMessage: 'Unable to capture Stripe payment' },
+    );
+    return paymentActionFromStripe(this.id, payload);
+  }
+
+  public async cancelPayment(
+    input: BillingPaymentActionInput,
+  ): Promise<BillingPaymentActionResult> {
+    const payload = await this.stripeRequest(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(input.providerPaymentId)}/cancel`,
+      {
+        method: 'POST',
+        body: new URLSearchParams(),
+        errorMessage: 'Unable to cancel Stripe payment',
+      },
+    );
+    return paymentActionFromStripe(this.id, payload);
+  }
+
+  public async refundPayment(input: BillingRefundInput): Promise<BillingRefundResult> {
+    const body = new URLSearchParams({ payment_intent: input.providerPaymentId });
+    if (input.amount) body.set('amount', String(input.amount));
+    if (input.reason) body.set('reason', input.reason);
+    appendMetadata(body, input.metadata);
+    const payload = await this.stripeRequest('https://api.stripe.com/v1/refunds', {
+      method: 'POST',
+      body,
+      errorMessage: 'Unable to refund Stripe payment',
+    });
+    const providerRefundId = asString(payload.id);
+    if (!providerRefundId) throw new BadRequestError('Stripe refund id is missing');
+    return {
+      provider: this.id,
+      providerRefundId,
+      providerPaymentId: asString(payload.payment_intent) ?? input.providerPaymentId,
+      amount: asNumber(payload.amount) ?? input.amount ?? 0,
+      currency: asString(payload.currency) ?? 'usd',
+      status: asString(payload.status) ?? 'unknown',
+    };
+  }
+
+  public async createSubscription(
+    input: BillingSubscriptionInput,
+  ): Promise<ProviderSubscriptionState> {
+    const priceId = input.providerPriceId ?? priceIdFor(input.planCode, input.billingInterval);
+    if (!priceId) throw new BadRequestError('Billing price is not configured');
+    const body = new URLSearchParams({
+      customer: input.providerCustomerId,
+      'items[0][price]': priceId,
+      'metadata[workspaceId]': input.workspaceId,
+      'metadata[planCode]': input.planCode,
+      'metadata[billingInterval]': input.billingInterval,
+    });
+    if (input.trialDays && input.trialDays > 0)
+      body.set('trial_period_days', String(input.trialDays));
+    appendMetadata(body, input.metadata);
+    const payload = await this.stripeRequest('https://api.stripe.com/v1/subscriptions', {
+      method: 'POST',
+      body,
+      errorMessage: 'Unable to create Stripe subscription',
+      idempotencyKey: `subscription_${input.workspaceId}_${input.planCode}_${input.billingInterval}`,
+    });
+    return this.subscriptionStateFromStripeObject(payload);
+  }
 
   public async createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSessionResult> {
     if (!env.STRIPE_SECRET_KEY) throw new BadRequestError('Stripe is not configured');
@@ -89,10 +255,39 @@ export class StripeBillingProvider implements BillingProvider {
     return this.updateSubscription(providerSubscriptionId, { cancel_at_period_end: 'true' });
   }
 
-  public async reactivateSubscription(
+  public async resumeSubscription(
     providerSubscriptionId: string,
   ): Promise<ProviderSubscriptionState | null> {
     return this.updateSubscription(providerSubscriptionId, { cancel_at_period_end: 'false' });
+  }
+
+  public async reactivateSubscription(
+    providerSubscriptionId: string,
+  ): Promise<ProviderSubscriptionState | null> {
+    return this.resumeSubscription(providerSubscriptionId);
+  }
+
+  public async retrievePaymentDetails(
+    providerPaymentId: string,
+  ): Promise<BillingPaymentDetailsResult> {
+    const payload = await this.stripeRequest(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(providerPaymentId)}`,
+      { method: 'GET', errorMessage: 'Unable to retrieve Stripe payment' },
+    );
+    const status = asString(payload.status) ?? 'unknown';
+    return {
+      provider: this.id,
+      providerPaymentId: asString(payload.id) ?? providerPaymentId,
+      providerCustomerId: asString(payload.customer),
+      providerOrderId: asString(payload.id),
+      amount: asNumber(payload.amount),
+      amountCapturable: asNumber(payload.amount_capturable),
+      amountReceived: asNumber(payload.amount_received),
+      currency: asString(payload.currency),
+      status,
+      captured: status === 'succeeded' || (asNumber(payload.amount_received) ?? 0) > 0,
+      metadata: stringifyRecord(asRecord(payload.metadata)),
+    };
   }
 
   public verifyWebhook(body: unknown, signature: string | undefined): BillingWebhookPayload {
@@ -147,6 +342,24 @@ export class StripeBillingProvider implements BillingProvider {
     };
   }
 
+  private async stripeRequest(
+    url: string,
+    options: StripeRequestOptions,
+  ): Promise<Record<string, unknown>> {
+    if (!env.STRIPE_SECRET_KEY) throw new BadRequestError('Stripe is not configured');
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+    };
+    if (options.method === 'POST') headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
+    const requestInit: RequestInit = { method: options.method, headers };
+    if (options.method === 'POST' && options.body) requestInit.body = options.body;
+    const response = await fetch(url, requestInit);
+    const payload = (await response.json()) as Record<string, unknown>;
+    if (!response.ok) throw new BadRequestError(options.errorMessage);
+    return payload;
+  }
+
   private async updateSubscription(
     providerSubscriptionId: string,
     fields: Record<string, string>,
@@ -194,9 +407,7 @@ export class StripeBillingProvider implements BillingProvider {
       endedAt: unixDate(object.ended_at),
       gracePeriodEndsAt:
         asString(object.status) === 'past_due' ? new Date(Date.now() + 7 * 86400000) : null,
-      metadata: Object.fromEntries(
-        Object.entries(metadata).map(([key, value]) => [key, String(value)]),
-      ),
+      metadata: stringifyRecord(metadata),
     };
   }
 }
@@ -205,6 +416,29 @@ const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
 const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+const asNumber = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+
+const stringifyRecord = (value: Record<string, unknown>): Record<string, string> =>
+  Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, String(entry)]));
+
+const appendMetadata = (
+  body: URLSearchParams,
+  metadata: Record<string, string> | undefined,
+): void => {
+  for (const [key, value] of Object.entries(metadata ?? {})) body.set(`metadata[${key}]`, value);
+};
+
+const paymentActionFromStripe = (
+  provider: 'stripe',
+  payload: Record<string, unknown>,
+): BillingPaymentActionResult => ({
+  provider,
+  providerPaymentId: asString(payload.id) ?? '',
+  amount: asNumber(payload.amount),
+  currency: asString(payload.currency),
+  status: asString(payload.status) ?? 'unknown',
+});
 
 const unixDate = (value: unknown): Date | null =>
   typeof value === 'number' ? new Date(value * 1000) : null;
