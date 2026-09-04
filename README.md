@@ -1,4 +1,6 @@
-# Project Management SaaS
+# Zenith — Project Management SaaS
+
+[![CI](https://github.com/sahilmor/zenith/actions/workflows/ci.yml/badge.svg)](https://github.com/sahilmor/zenith/actions/workflows/ci.yml)
 
 A production-oriented Project Management SaaS monorepo built with Turborepo, Next.js 15, React 19, Express, Socket.io, MongoDB, and shared TypeScript packages.
 
