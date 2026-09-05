@@ -2,6 +2,7 @@
 
 import { Activity, AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { EmptyState } from '@/components/common/empty-state';
+import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
 import { Skeleton } from '@/components/common/skeleton';
 import { Card } from '@/components/ui/card';
@@ -36,6 +37,11 @@ export default function AnalyticsPage() {
               </Card>
             ))}
           </section>
+        ) : analytics.isError ? (
+          <ErrorState
+            title="Unable to load analytics"
+            description="Please refresh and try again."
+          />
         ) : analytics.data ? (
           <>
             <KpiGrid analytics={analytics.data} />
