@@ -33,6 +33,9 @@
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   },
+  "overrides": {
+    "qs": "6.16.0"
+  },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
       "eslint --fix",
