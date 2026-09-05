@@ -4,9 +4,21 @@ import { logger } from '../../../utils/logger.js';
 import type { BackgroundJobDocument } from '../models/background-job.model.js';
 import { auditLogService } from './audit-log.service.js';
 
+type JobHandler = (job: BackgroundJobDocument) => Promise<void>;
+
 export class BackgroundJobService {
   private running = false;
   private timer: NodeJS.Timeout | null = null;
+
+  private readonly handlers: Record<string, JobHandler> = {
+    'document.cleanup.exports': (job) => {
+      logger.info('Document export cleanup acknowledged', {
+        jobId: job.id,
+        expiredExports: job.payload.expiredExports,
+      });
+      return Promise.resolve();
+    },
+  };
 
   public constructor(private readonly jobs = new BackgroundJobRepository()) {}
 
@@ -65,7 +77,10 @@ export class BackgroundJobService {
       await Promise.all(
         jobs.map(async (job) => {
           try {
-            logger.info('Background job processed', { jobId: job.id, type: job.type });
+            const handler = this.handlers[job.type];
+            if (!handler)
+              throw new Error(`No handler registered for background job type "${job.type}"`);
+            await handler(job);
             await this.jobs.complete(job._id);
           } catch (error) {
             await this.jobs.fail(job, error instanceof Error ? error.message : 'Job failed');

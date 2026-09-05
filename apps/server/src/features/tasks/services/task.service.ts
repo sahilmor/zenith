@@ -724,8 +724,10 @@ export class TaskService {
     if (input.assigneeIds !== undefined)
       update.assigneeIds = input.assigneeIds.map((id) => new Types.ObjectId(id));
     if (input.labels !== undefined) update.labels = input.labels;
-    if (input.dueDate !== undefined)
+    if (input.dueDate !== undefined) {
       update.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+      update.dueDateAutomationRunAt = null;
+    }
     if (input.startDate !== undefined)
       update.startDate = input.startDate ? new Date(input.startDate) : null;
     if ('estimate' in input && input.estimate !== undefined) update.estimate = input.estimate;

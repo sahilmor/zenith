@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
 import { backgroundJobService } from './features/ops/services/background-job.service.js';
+import { automationService } from './features/ai/services/automation.service.js';
 import { initializeSocketServer } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 
@@ -35,6 +36,7 @@ const startServer = async (): Promise<void> => {
   const httpServer = createServer(app);
   const io = initializeSocketServer(httpServer);
   backgroundJobService.start();
+  automationService.start();
 
   try {
     await listen(httpServer, env.PORT);
@@ -52,6 +54,7 @@ const startServer = async (): Promise<void> => {
       });
     }
     backgroundJobService.stop();
+    automationService.stop();
     io.close();
     if (databaseConnected) await disconnectDatabase();
     process.exit(1);
@@ -60,6 +63,7 @@ const startServer = async (): Promise<void> => {
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     logger.info('Graceful shutdown started', { signal });
     backgroundJobService.stop();
+    automationService.stop();
     io.close();
     httpServer.close(async () => {
       await disconnectDatabase();
