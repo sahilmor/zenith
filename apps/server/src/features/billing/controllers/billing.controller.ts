@@ -158,6 +158,7 @@ export const handleBillingWebhook: RequestHandler = asyncHandler(async (request,
       request.params.provider as 'local' | 'stripe',
       request.body,
       request.header('stripe-signature') ?? request.header('x-billing-signature') ?? undefined,
+      request.rawBody,
     ),
   );
 });

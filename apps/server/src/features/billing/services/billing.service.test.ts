@@ -1,8 +1,10 @@
+import crypto from 'node:crypto';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../../app.js';
+import { env } from '../../../config/env.js';
 import { TokenService } from '../../auth/services/token.service.js';
 import { UserModel, type UserDocument } from '../../users/models/user.model.js';
 import { WorkspaceService } from '../../workspaces/services/workspace.service.js';
@@ -157,5 +159,61 @@ describe('Billing module', () => {
       new mongoose.Types.ObjectId(workspace.id),
     );
     expect(entitlements.subscription.planCode).toBe('business');
+  });
+
+  it('verifies a real Stripe webhook signature end-to-end and rejects a forged one', async () => {
+    const previousSecret = env.STRIPE_WEBHOOK_SECRET;
+    env.STRIPE_WEBHOOK_SECRET = 'whsec_e2e_test_secret';
+    try {
+      const app = createApp();
+      const owner = await createUser('stripe-webhook-owner@example.com');
+      const workspace = await new WorkspaceService().createWorkspace(owner._id, {
+        name: 'Stripe Webhook Workspace',
+        visibility: 'private',
+      });
+      const rawBody = JSON.stringify({
+        id: 'evt_stripe_e2e',
+        type: 'customer.subscription.updated',
+        data: {
+          object: {
+            id: 'sub_e2e',
+            customer: 'cus_e2e',
+            status: 'active',
+            currency: 'usd',
+            metadata: {
+              workspaceId: workspace.id,
+              planCode: 'pro',
+              billingInterval: 'monthly',
+            },
+          },
+        },
+      });
+      const timestamp = Math.floor(Date.now() / 1000);
+      const hmac = crypto
+        .createHmac('sha256', env.STRIPE_WEBHOOK_SECRET)
+        .update(`${timestamp}.${rawBody}`)
+        .digest('hex');
+
+      await request(app)
+        .post('/api/billing/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('stripe-signature', `t=${timestamp},v1=${hmac}`)
+        .send(rawBody)
+        .expect(200);
+
+      const entitlements = await entitlementService.getWorkspaceEntitlements(
+        new mongoose.Types.ObjectId(workspace.id),
+      );
+      expect(entitlements.subscription.planCode).toBe('pro');
+
+      await request(app)
+        .post('/api/billing/webhooks/stripe')
+        .set('Content-Type', 'application/json')
+        .set('stripe-signature', `t=${timestamp},v1=deadbeef`)
+        .send(rawBody)
+        .expect(403);
+    } finally {
+      env.STRIPE_WEBHOOK_SECRET = previousSecret;
+    }
   });
 });

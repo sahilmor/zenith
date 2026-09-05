@@ -14,9 +14,14 @@ export class BillingWebhookService {
     private readonly providers = new BillingProviderRegistry(),
   ) {}
 
-  public async handle(providerId: 'local' | 'stripe', body: unknown, signature?: string) {
+  public async handle(
+    providerId: 'local' | 'stripe',
+    body: unknown,
+    signature?: string,
+    rawBody?: Buffer,
+  ) {
     const provider = this.providers.getProvider(providerId);
-    const payload = provider.verifyWebhook(body, signature);
+    const payload = provider.verifyWebhook(body, signature, rawBody);
     const workspaceId = payload.subscription?.workspaceId
       ? new Types.ObjectId(payload.subscription.workspaceId)
       : payload.invoice?.workspaceId

@@ -290,13 +290,54 @@ export class StripeBillingProvider implements BillingProvider {
     };
   }
 
-  public verifyWebhook(body: unknown, signature: string | undefined): BillingWebhookPayload {
+  public verifyWebhook(
+    body: unknown,
+    signature: string | undefined,
+    rawBody?: Buffer,
+  ): BillingWebhookPayload {
     if (!env.STRIPE_WEBHOOK_SECRET) throw new BadRequestError('Stripe webhook is not configured');
+    if (!signature) throw new ForbiddenError('Invalid billing signature');
+    if (!rawBody) throw new BadRequestError('Stripe webhook requires the raw request body');
+
+    // Stripe's Stripe-Signature header looks like "t=<timestamp>,v1=<hmac>[,v1=<hmac>...]"
+    // (multiple v1 entries appear during webhook secret rotation; a legacy v0 entry may
+    // also be present and is ignored). The signed payload is "<timestamp>.<raw body>",
+    // never the parsed/re-serialized JSON, which is not guaranteed to round-trip byte-for-byte.
+    const parts = signature.split(',').reduce<Record<string, string[]>>((accumulator, part) => {
+      const [key, value] = part.split('=');
+      if (key && value) (accumulator[key] ??= []).push(value);
+      return accumulator;
+    }, {});
+    const timestamp = parts.t?.[0];
+    const candidateSignatures = parts.v1 ?? [];
+    if (!timestamp || candidateSignatures.length === 0) {
+      throw new ForbiddenError('Invalid billing signature');
+    }
+
+    const toleranceSeconds = 300;
+    const timestampSeconds = Number(timestamp);
+    if (
+      !Number.isFinite(timestampSeconds) ||
+      Math.abs(Date.now() / 1000 - timestampSeconds) > toleranceSeconds
+    ) {
+      throw new ForbiddenError('Billing webhook timestamp is outside the allowed tolerance');
+    }
+
+    const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
     const expected = crypto
       .createHmac('sha256', env.STRIPE_WEBHOOK_SECRET)
-      .update(JSON.stringify(body))
+      .update(signedPayload)
       .digest('hex');
-    if (signature !== `sha256=${expected}`) throw new ForbiddenError('Invalid billing signature');
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const matches = candidateSignatures.some((candidate) => {
+      const candidateBuffer = Buffer.from(candidate, 'hex');
+      return (
+        candidateBuffer.length === expectedBuffer.length &&
+        crypto.timingSafeEqual(candidateBuffer, expectedBuffer)
+      );
+    });
+    if (!matches) throw new ForbiddenError('Invalid billing signature');
+
     return this.parseStripeWebhook(body);
   }
 
