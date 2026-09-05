@@ -57,6 +57,8 @@ export const login: RequestHandler = asyncHandler(async (request, response) => {
 });
 
 export const logout: RequestHandler = asyncHandler(async (request, response) => {
+  const token = request.body?.refreshToken ?? request.cookies?.refreshToken;
+  await authService.logout(typeof token === 'string' ? token : undefined);
   response.clearCookie('refreshToken', refreshCookieOptions);
   await auditLogService.recordFromRequest(request, {
     targetType: 'user',

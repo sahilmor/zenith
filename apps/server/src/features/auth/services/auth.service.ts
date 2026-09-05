@@ -4,6 +4,7 @@ import { EmailService, type EmailSender } from '../../../services/email.service.
 import { BadRequestError, ConflictError, UnauthorizedError } from '../../../utils/app-error.js';
 import { logger } from '../../../utils/logger.js';
 import type { UserDocument } from '../../users/models/user.model.js';
+import { RefreshTokenModel } from '../models/refresh-token.model.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import type {
   ForgotPasswordInput,
@@ -79,6 +80,7 @@ export class AuthService {
     user.passwordResetToken = null;
     user.passwordResetExpiresAt = null;
     await this.users.save(user);
+    await this.revokeAllRefreshTokens(user.id);
   }
 
   public async verifyEmail(input: VerifyEmailInput): Promise<AuthResult> {
@@ -145,15 +147,37 @@ export class AuthService {
     const payload = this.tokens.verifyRefreshToken(refreshToken);
     const user = await this.users.findById(payload.userId);
     if (!user) throw new UnauthorizedError('User no longer exists');
+    const stored = await RefreshTokenModel.findOne({ tokenHash: this.hashToken(refreshToken) });
+    if (!stored || stored.revokedAt) throw new UnauthorizedError('Refresh token has been revoked');
+    stored.revokedAt = new Date();
+    await stored.save();
     return this.createAuthResult(user);
   }
 
-  private createAuthResult(user: UserDocument): AuthResult {
+  public async logout(refreshToken: string | undefined): Promise<void> {
+    if (!refreshToken) return;
+    await RefreshTokenModel.updateOne(
+      { tokenHash: this.hashToken(refreshToken), revokedAt: null },
+      { revokedAt: new Date() },
+    );
+  }
+
+  private async revokeAllRefreshTokens(userId: string): Promise<void> {
+    await RefreshTokenModel.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() });
+  }
+
+  private async createAuthResult(user: UserDocument): Promise<AuthResult> {
     const payload = { userId: user.id, email: user.email, role: user.role };
+    const refreshToken = this.tokens.generateRefreshToken(payload);
+    await RefreshTokenModel.create({
+      userId: user.id,
+      tokenHash: this.hashToken(refreshToken),
+      expiresAt: this.tokens.getExpiry(refreshToken),
+    });
     return {
       user: this.toSafeUser(user),
       accessToken: this.tokens.generateAccessToken(payload),
-      refreshToken: this.tokens.generateRefreshToken(payload),
+      refreshToken,
     };
   }
 
