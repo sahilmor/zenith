@@ -4,6 +4,10 @@ import { ActivityService } from '../../activity/services/activity.service.js';
 import { ProjectRepository } from '../../projects/repositories/project.repository.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
@@ -42,7 +46,13 @@ export class BoardService {
     input: CreateBoardInput,
   ): Promise<BoardSummary> {
     const project = await this.requireProject(projectId);
-    await this.requireWorkspaceRole(project.workspaceId, userId, boardWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      project.workspaceId,
+      userId,
+      boardWriteRoles,
+      'Board manager access required',
+    );
     const board = await this.boards.create({
       workspaceId: project.workspaceId,
       projectId,
@@ -100,7 +110,7 @@ export class BoardService {
     userId: Types.ObjectId,
   ): Promise<BoardSummary[]> {
     const project = await this.requireProject(projectId);
-    await this.requireWorkspaceMembership(project.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, project.workspaceId, userId);
     const boards = await this.boards.listByProject(projectId);
     return boards.map((board) => this.toBoardSummary(board));
   }
@@ -343,7 +353,7 @@ export class BoardService {
   ): Promise<BoardDocument> {
     const board = await this.boards.findById(boardId);
     if (!board) throw new NotFoundError('Board not found');
-    await this.requireWorkspaceMembership(board.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, board.workspaceId, userId);
     return board;
   }
 
@@ -353,7 +363,13 @@ export class BoardService {
   ): Promise<BoardDocument> {
     const board = await this.boards.findById(boardId);
     if (!board) throw new NotFoundError('Board not found');
-    await this.requireWorkspaceRole(board.workspaceId, userId, boardWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      board.workspaceId,
+      userId,
+      boardWriteRoles,
+      'Board manager access required',
+    );
     return board;
   }
 
@@ -365,29 +381,6 @@ export class BoardService {
     if (!column) throw new NotFoundError('Column not found');
     const board = await this.requireBoardWriteAccess(column.boardId, userId);
     return { board, column };
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('Board manager access required');
   }
 
   private ensureBoardActive(board: BoardDocument): void {

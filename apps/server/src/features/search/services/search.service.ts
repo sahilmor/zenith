@@ -12,7 +12,8 @@ import type {
   WorkspaceRole,
 } from '@pm/types';
 import { Types } from 'mongoose';
-import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { ForbiddenError } from '../../../utils/app-error.js';
+import { requireWorkspaceMembership } from '../../../utils/workspace-access.js';
 import { BoardModel } from '../../boards/models/board.model.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 import { DocumentBlockModel } from '../../documents/models/document-block.model.js';
@@ -77,7 +78,7 @@ export class SearchService {
   ): Promise<SearchResponseSummary> {
     const startedAt = Date.now();
     const workspaceId = toObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await entitlementService.requireFeature(workspaceId, 'advanced_search');
     await this.syncWorkspaceIndex(workspaceId);
     const entityTypes = input.entityTypes
@@ -137,7 +138,7 @@ export class SearchService {
     input: SuggestionsQuery,
   ): Promise<SearchSuggestionSummary[]> {
     const workspaceId = toObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await this.syncWorkspaceIndex(workspaceId);
     const [recent, indexed] = await Promise.all([
       this.searchRepository.listRecent({ workspaceId, userId, limit: 5 }),
@@ -168,7 +169,7 @@ export class SearchService {
     userId: Types.ObjectId,
     workspaceId: Types.ObjectId,
   ): Promise<SearchResultSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await this.syncWorkspaceIndex(workspaceId);
     const documents = await this.searchRepository.suggestions({ workspaceId, limit: 12 });
     return this.rankAndMap(await this.filterReadableResults(documents, userId), '', 'popularity');
@@ -179,7 +180,7 @@ export class SearchService {
     input: SavedSearchInput,
   ): Promise<SavedSearchSummary> {
     const workspaceId = toObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const saved = await this.searchRepository.saveSearch({
       workspaceId,
       userId,
@@ -195,7 +196,7 @@ export class SearchService {
     userId: Types.ObjectId,
     workspaceId: Types.ObjectId,
   ): Promise<SavedSearchSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.searchRepository.listSavedSearches({ workspaceId, userId })).map((item) =>
       this.toSavedSearch(item),
     );
@@ -212,14 +213,14 @@ export class SearchService {
     userId: Types.ObjectId,
     workspaceId: Types.ObjectId,
   ): Promise<RecentSearchSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.searchRepository.listRecent({ workspaceId, userId, limit: 20 })).map(
       (item) => this.toRecentSearch(item),
     );
   }
 
   public async clearRecent(userId: Types.ObjectId, workspaceId: Types.ObjectId): Promise<void> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await this.searchRepository.clearRecent(workspaceId, userId);
   }
 
@@ -227,7 +228,7 @@ export class SearchService {
     userId: Types.ObjectId,
     workspaceId: Types.ObjectId,
   ): Promise<SearchAnalyticsSummary> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
+    const role = await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     if (!managerRoles.has(role)) throw new ForbiddenError('Search analytics access denied');
     return this.searchRepository.analytics(workspaceId);
   }
@@ -238,7 +239,7 @@ export class SearchService {
     query: string;
     limit?: number;
   }): Promise<KnowledgeChunkSummary[]> {
-    await this.requireWorkspaceMembership(input.workspaceId, input.userId);
+    await requireWorkspaceMembership(this.workspaces, input.workspaceId, input.userId);
     await entitlementService.requireFeature(input.workspaceId, 'advanced_search');
     await this.syncWorkspaceIndex(input.workspaceId);
     const chunks = await this.searchRepository.listChunks({
@@ -592,20 +593,6 @@ export class SearchService {
       total: groupResults.length,
       results: groupResults,
     }));
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
   }
 
   private isSearchEntityType(value: string): value is SearchEntityType {

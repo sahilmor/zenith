@@ -14,6 +14,10 @@ import { BoardRepository, ColumnRepository } from '../../boards/repositories/boa
 import { ProjectRepository } from '../../projects/repositories/project.repository.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
 import { automationService } from '../../ai/services/automation.service.js';
@@ -159,7 +163,11 @@ export class TaskService {
     query: ListTasksQuery,
   ): Promise<TaskListSummary> {
     if (query.workspaceId)
-      await this.requireWorkspaceMembership(new Types.ObjectId(query.workspaceId), userId);
+      await requireWorkspaceMembership(
+        this.workspaces,
+        new Types.ObjectId(query.workspaceId),
+        userId,
+      );
     if (query.boardId) await this.requireBoardAccess(new Types.ObjectId(query.boardId), userId);
 
     const workspaceIds = query.workspaceId
@@ -634,7 +642,7 @@ export class TaskService {
   ): Promise<BoardDocument> {
     const board = await this.boards.findById(boardId);
     if (!board) throw new NotFoundError('Board not found');
-    await this.requireWorkspaceMembership(board.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, board.workspaceId, userId);
     return board;
   }
 
@@ -644,7 +652,13 @@ export class TaskService {
   ): Promise<BoardDocument> {
     const board = await this.requireBoardAccess(boardId, userId);
     this.ensureBoardActive(board);
-    await this.requireWorkspaceRole(board.workspaceId, userId, taskWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      board.workspaceId,
+      userId,
+      taskWriteRoles,
+      'Task write access required',
+    );
     return board;
   }
 
@@ -686,29 +700,6 @@ export class TaskService {
     if (!subtask) throw new NotFoundError('Subtask not found');
     const task = await this.requireTaskWriteAccess(subtask.taskId, userId);
     return { task, subtask };
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('Task write access required');
   }
 
   private ensureBoardActive(board: BoardDocument): void {

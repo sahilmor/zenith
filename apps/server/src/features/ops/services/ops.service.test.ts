@@ -116,6 +116,33 @@ describe('Operations module', () => {
       .expect(400);
   });
 
+  it('rejects feature flag evaluation for a non-member of the scoped workspace', async () => {
+    const app = createApp();
+    const owner = await createUser('flag-owner@example.com', 'Flag Owner', 'admin');
+    const outsider = await createUser('flag-outsider@example.com', 'Flag Outsider');
+    const workspace = await new WorkspaceService().createWorkspace(owner._id, {
+      name: 'Flag Workspace',
+      visibility: 'private',
+    });
+
+    await request(app)
+      .put('/api/ops/feature-flags')
+      .set('Authorization', bearer(owner))
+      .send({
+        key: 'ai.copilot',
+        enabled: true,
+        rolloutPercentage: 100,
+        workspaceIds: [workspace.id],
+        userIds: [],
+      })
+      .expect(200);
+
+    await request(app)
+      .get(`/api/ops/feature-flags/ai.copilot/evaluate?workspaceId=${workspace.id}`)
+      .set('Authorization', bearer(outsider))
+      .expect(403);
+  });
+
   it('restricts platform operations to platform admins', async () => {
     const app = createApp();
     const member = await createUser('ops-member@example.com');

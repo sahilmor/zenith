@@ -27,6 +27,10 @@ import { randomUUID } from 'node:crypto';
 import { Types } from 'mongoose';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import type { ActivityEventName } from '../../activity/models/activity-event.model.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
@@ -111,7 +115,7 @@ export class DocumentService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<KnowledgeHomeSummary> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const [spaces, favorites, recents, pins, templates] = await Promise.all([
       this.documents.listSpaces(workspaceId),
       this.documents.listFavorites({ workspaceId, userId }),
@@ -133,7 +137,7 @@ export class DocumentService {
     userId: Types.ObjectId,
     input: CreateSpaceInput,
   ): Promise<DocumentSpaceSummary> {
-    await this.requireWorkspaceRole(workspaceId, userId, manageWorkspaceRoles);
+    await requireWorkspaceRole(this.workspaces, workspaceId, userId, manageWorkspaceRoles);
     await entitlementService.requireFeature(workspaceId, 'documents');
     await entitlementService.requireWithinLimit(workspaceId, 'documentSpaces');
     const slug = await this.uniqueSpaceSlug(workspaceId, input.slug ?? input.name);
@@ -165,7 +169,7 @@ export class DocumentService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<DocumentSpaceSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.documents.listSpaces(workspaceId)).map((space) => this.toSpace(space));
   }
 
@@ -203,7 +207,7 @@ export class DocumentService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<DocumentFavoriteSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.documents.listFavorites({ workspaceId, userId })).map((favorite) =>
       this.toFavorite(favorite),
     );
@@ -312,7 +316,7 @@ export class DocumentService {
   ): Promise<DocumentPinSummary> {
     const page = await this.requirePageRole(pageId, userId, 'viewer');
     if (input.scope !== 'personal') {
-      await this.requireWorkspaceRole(page.workspaceId, userId, manageWorkspaceRoles);
+      await requireWorkspaceRole(this.workspaces, page.workspaceId, userId, manageWorkspaceRoles);
     }
     const pin = await this.documents.upsertPin({
       workspaceId: page.workspaceId,
@@ -392,7 +396,7 @@ export class DocumentService {
     userId: Types.ObjectId,
     input: CreateTagInput,
   ): Promise<DocumentPageTagSummary> {
-    await this.requireWorkspaceRole(workspaceId, userId, manageWorkspaceRoles);
+    await requireWorkspaceRole(this.workspaces, workspaceId, userId, manageWorkspaceRoles);
     const existing = await this.documents.findTagBySlug(workspaceId, slugify(input.name));
     if (existing) return this.toTag(existing);
     const tag = await this.documents.createTag({
@@ -414,7 +418,7 @@ export class DocumentService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<DocumentPageTagSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.documents.listTags(workspaceId)).map((tag) => this.toTag(tag));
   }
 
@@ -423,7 +427,7 @@ export class DocumentService {
     userId: Types.ObjectId,
     input: CreateTemplateInput,
   ): Promise<DocumentTemplateSummary> {
-    await this.requireWorkspaceRole(workspaceId, userId, manageWorkspaceRoles);
+    await requireWorkspaceRole(this.workspaces, workspaceId, userId, manageWorkspaceRoles);
     if (input.spaceId) await this.requireSpaceRead(toObjectId(input.spaceId), userId);
     const template = await this.documents.createTemplate({
       workspaceId,
@@ -461,7 +465,7 @@ export class DocumentService {
     userId: Types.ObjectId,
     spaceId?: Types.ObjectId | null,
   ): Promise<DocumentTemplateSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     if (spaceId) await this.requireSpaceRead(spaceId, userId);
     return (
       await this.documents.listTemplates({
@@ -818,7 +822,7 @@ export class DocumentService {
     }
     const template = await this.documents.findTemplate(targetId);
     if (!template || template.archived) throw new NotFoundError('Template not found');
-    await this.requireWorkspaceMembership(template.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, template.workspaceId, userId);
   }
 
   private async replaceBlocks(
@@ -993,35 +997,15 @@ export class DocumentService {
     return candidate;
   }
 
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: Set<WorkspaceRole>,
-  ): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active' || !roles.has(membership.role)) {
-      throw new ForbiddenError('Workspace access denied');
-    }
-  }
-
   private async requireSpaceRead(
     spaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<DocumentSpaceDocument> {
     const space = await this.documents.findSpace(spaceId);
     if (!space || space.archived) throw new NotFoundError('Space not found');
-    await this.requireWorkspaceMembership(space.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, space.workspaceId, userId);
     if (space.visibility === 'private' && !space.ownerId.equals(userId)) {
-      await this.requireWorkspaceRole(space.workspaceId, userId, manageWorkspaceRoles);
+      await requireWorkspaceRole(this.workspaces, space.workspaceId, userId, manageWorkspaceRoles);
     }
     return space;
   }
@@ -1032,7 +1016,7 @@ export class DocumentService {
   ): Promise<DocumentSpaceDocument> {
     const space = await this.requireSpaceRead(spaceId, userId);
     if (!space.ownerId.equals(userId)) {
-      await this.requireWorkspaceRole(space.workspaceId, userId, manageWorkspaceRoles);
+      await requireWorkspaceRole(this.workspaces, space.workspaceId, userId, manageWorkspaceRoles);
     }
     return space;
   }
@@ -1043,9 +1027,9 @@ export class DocumentService {
   ): Promise<DocumentFolderDocument> {
     const folder = await this.documents.findFolder(folderId);
     if (!folder || folder.archived) throw new NotFoundError('Folder not found');
-    await this.requireWorkspaceMembership(folder.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, folder.workspaceId, userId);
     if (this.resolveFolderRole(folder, userId) !== 'owner') {
-      await this.requireWorkspaceRole(folder.workspaceId, userId, manageWorkspaceRoles);
+      await requireWorkspaceRole(this.workspaces, folder.workspaceId, userId, manageWorkspaceRoles);
     }
     return folder;
   }
@@ -1076,7 +1060,7 @@ export class DocumentService {
     userId: Types.ObjectId,
     minimumRole: DocumentPermissionRole,
   ): Promise<boolean> {
-    await this.requireWorkspaceMembership(page.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, page.workspaceId, userId);
     const explicit = page.permissions.find((item) => item.userId.equals(userId))?.role;
     const role: DocumentPermissionRole =
       explicit ?? (page.ownerId.equals(userId) ? 'owner' : 'viewer');
