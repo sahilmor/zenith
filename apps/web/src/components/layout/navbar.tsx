@@ -42,6 +42,7 @@ export function Navbar() {
           size="icon"
           className="lg:hidden"
           onClick={toggleMobile}
+          aria-label="Open menu"
         >
           <Menu className="size-5" />
         </Button>

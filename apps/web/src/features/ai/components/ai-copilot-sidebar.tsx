@@ -115,6 +115,7 @@ export function AiCopilotSidebar() {
           size="icon"
           className="ml-auto"
           onClick={() => setOpen(false)}
+          aria-label="Close AI Copilot"
         >
           <PanelRightClose className="size-5" />
         </Button>
