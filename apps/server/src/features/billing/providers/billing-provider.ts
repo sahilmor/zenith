@@ -182,5 +182,9 @@ export interface BillingProvider {
   retrievePaymentDetails(providerPaymentId: string): Promise<BillingPaymentDetailsResult>;
   createCheckoutSession(input: CheckoutSessionInput): Promise<CheckoutSessionResult>;
   createPortalSession(input: PortalSessionInput): Promise<{ readonly url: string }>;
-  verifyWebhook(body: unknown, signature: string | undefined): BillingWebhookPayload;
+  verifyWebhook(
+    body: unknown,
+    signature: string | undefined,
+    rawBody?: Buffer,
+  ): BillingWebhookPayload;
 }
