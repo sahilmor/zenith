@@ -28,7 +28,12 @@ import {
 } from '../../documents/models/document-page.model.js';
 import { DocumentSpaceModel } from '../../documents/models/document-space.model.js';
 import { ProjectModel } from '../../projects/models/project.model.js';
+import { AttachmentModel } from '../../tasks/models/attachment.model.js';
 import { TaskModel } from '../../tasks/models/task.model.js';
+import { GoalModel } from '../../strategic/models/goal.model.js';
+import { InitiativeModel } from '../../strategic/models/initiative.model.js';
+import { PortfolioModel } from '../../strategic/models/portfolio.model.js';
+import { IntakeFormModel } from '../../customization/models/intake-form.model.js';
 import { UserModel } from '../../users/models/user.model.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
@@ -253,7 +258,20 @@ export class SearchService {
   }
 
   public async syncWorkspaceIndex(workspaceId: Types.ObjectId): Promise<void> {
-    const [projects, boards, tasks, spaces, folders, pages, templates, users] = await Promise.all([
+    const [
+      projects,
+      boards,
+      tasks,
+      spaces,
+      folders,
+      pages,
+      templates,
+      users,
+      goals,
+      initiatives,
+      portfolios,
+      forms,
+    ] = await Promise.all([
       ProjectModel.find({ workspaceId }).exec(),
       BoardModel.find({ workspaceId }).exec(),
       TaskModel.find({ workspaceId }).exec(),
@@ -262,10 +280,18 @@ export class SearchService {
       DocumentPageModel.find({ workspaceId, status: { $ne: 'deleted' } }).exec(),
       DocumentPageTemplateModel.find({ workspaceId }).exec(),
       WorkspaceMemberModel.find({ workspaceId, status: 'active' }).limit(100).exec(),
+      GoalModel.find({ workspaceId }).exec(),
+      InitiativeModel.find({ workspaceId }).exec(),
+      PortfolioModel.find({ workspaceId }).exec(),
+      IntakeFormModel.find({ workspaceId }).exec(),
     ]);
     const workspaceUsers = await UserModel.find({
       _id: { $in: users.map((member) => member.userId) },
     }).exec();
+    const attachments = await AttachmentModel.find({
+      taskId: { $in: tasks.map((task) => task._id) },
+    }).exec();
+    const taskById = new Map(tasks.map((task) => [task.id, task]));
     await Promise.all([
       ...projects.map((project) =>
         this.searchRepository.upsertIndex({
@@ -344,6 +370,93 @@ export class SearchService {
       ),
       ...pages.map((page) => this.indexPage(page)),
       ...templates.map((template) => this.indexTemplate(template)),
+      ...goals.map((goal) =>
+        this.searchRepository.upsertIndex({
+          workspaceId,
+          entityId: goal._id,
+          entityType: 'goal',
+          title: goal.title,
+          description: goal.description ?? null,
+          content: compactText(goal.title, goal.description),
+          ownerId: goal.ownerId,
+          visibility: 'workspace',
+          archived: goal.archived,
+          updatedSourceAt: goal.updatedAt,
+          url: `/dashboard/goals/${goal.id}`,
+          metadata: { status: goal.status, health: goal.health },
+        }),
+      ),
+      ...initiatives.map((initiative) =>
+        this.searchRepository.upsertIndex({
+          workspaceId,
+          entityId: initiative._id,
+          entityType: 'initiative',
+          title: initiative.name,
+          description: initiative.description ?? null,
+          content: compactText(initiative.name, initiative.description),
+          ownerId: initiative.ownerId,
+          visibility: 'workspace',
+          archived: initiative.archived,
+          updatedSourceAt: initiative.updatedAt,
+          url: '/dashboard/initiatives',
+          metadata: { status: initiative.status, health: initiative.health },
+        }),
+      ),
+      ...portfolios.map((portfolio) =>
+        this.searchRepository.upsertIndex({
+          workspaceId,
+          entityId: portfolio._id,
+          entityType: 'portfolio',
+          title: portfolio.name,
+          description: portfolio.description ?? null,
+          content: compactText(portfolio.name, portfolio.description),
+          ownerId: portfolio.ownerId,
+          visibility: 'workspace',
+          archived: portfolio.archived,
+          updatedSourceAt: portfolio.updatedAt,
+          url: '/dashboard/portfolios',
+          metadata: { status: portfolio.status, health: portfolio.health },
+        }),
+      ),
+      ...forms.map((form) =>
+        this.searchRepository.upsertIndex({
+          workspaceId,
+          entityId: form._id,
+          entityType: 'form',
+          title: form.name,
+          description: form.description ?? null,
+          content: compactText(form.name, form.description),
+          visibility: 'workspace',
+          archived: !form.active,
+          updatedSourceAt: form.updatedAt,
+          url: '/dashboard/customization',
+          metadata: { visibility: form.visibility, slug: form.slug },
+        }),
+      ),
+      ...attachments.flatMap((attachment) => {
+        const parentTask = taskById.get(attachment.taskId.toString());
+        if (!parentTask) return [];
+        return [
+          this.searchRepository.upsertIndex({
+            workspaceId,
+            entityId: attachment._id,
+            entityType: 'attachment',
+            title: attachment.originalName,
+            description: null,
+            content: compactText(attachment.originalName, attachment.fileType),
+            ownerId: attachment.uploadedBy,
+            visibility: 'workspace',
+            archived: false,
+            updatedSourceAt: attachment.createdAt,
+            url: `/dashboard/projects/${parentTask.projectId.toString()}/boards`,
+            metadata: {
+              taskId: parentTask.id,
+              fileType: attachment.fileType,
+              fileSize: attachment.fileSize,
+            },
+          }),
+        ];
+      }),
       ...workspaceUsers.map((user) =>
         this.searchRepository.upsertIndex({
           workspaceId,

@@ -1,7 +1,12 @@
 import type { Request } from 'express';
 import { Types } from 'mongoose';
+import { env } from '../../../config/env.js';
+import { logger } from '../../../utils/logger.js';
 import { AuditLogRepository } from '../repositories/ops.repository.js';
-import type { ListAuditLogsQuery } from '../validation/ops.validation.js';
+import type { ExportAuditLogsQuery, ListAuditLogsQuery } from '../validation/ops.validation.js';
+
+const sweepIntervalMs = 24 * 60 * 60 * 1000;
+const exportLimit = 10_000;
 
 export interface AuditLogSummary {
   id: string;
@@ -18,7 +23,34 @@ export interface AuditLogSummary {
 }
 
 export class AuditLogService {
+  private timer: NodeJS.Timeout | null = null;
+  private sweeping = false;
+
   public constructor(private readonly auditLogs = new AuditLogRepository()) {}
+
+  public start(): void {
+    if (this.timer || env.AUDIT_LOG_RETENTION_DAYS <= 0) return;
+    this.timer = setInterval(() => void this.sweepRetention(), sweepIntervalMs);
+  }
+
+  public stop(): void {
+    if (!this.timer) return;
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  public async sweepRetention(): Promise<number> {
+    if (this.sweeping || env.AUDIT_LOG_RETENTION_DAYS <= 0) return 0;
+    this.sweeping = true;
+    try {
+      const before = new Date(Date.now() - env.AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const deleted = await this.auditLogs.deleteOlderThan(before);
+      if (deleted > 0) logger.info('Audit log retention sweep completed', { deleted });
+      return deleted;
+    } finally {
+      this.sweeping = false;
+    }
+  }
 
   public async record(input: {
     actorId?: Types.ObjectId | null;
@@ -105,6 +137,51 @@ export class AuditLogService {
       total: result.total,
       hasMore: query.page * query.limit < result.total,
     };
+  }
+
+  public async exportCsv(query: ExportAuditLogsQuery): Promise<string> {
+    const logs = await this.auditLogs.listAll(
+      {
+        ...(query.workspaceId ? { workspaceId: new Types.ObjectId(query.workspaceId) } : {}),
+        ...(query.actorId ? { actorId: new Types.ObjectId(query.actorId) } : {}),
+        ...(query.targetType ? { targetType: query.targetType } : {}),
+        ...(query.action ? { action: query.action } : {}),
+        ...(query.search ? { search: query.search } : {}),
+      },
+      exportLimit,
+    );
+    const headers = [
+      'id',
+      'createdAt',
+      'actorId',
+      'workspaceId',
+      'targetType',
+      'targetId',
+      'action',
+      'ip',
+      'userAgent',
+      'requestId',
+      'metadata',
+    ];
+    const escape = (value: string): string => `"${value.replace(/"/g, '""')}"`;
+    const rows = logs.map((log) =>
+      [
+        log.id,
+        log.createdAt.toISOString(),
+        log.actorId?.toString() ?? '',
+        log.workspaceId?.toString() ?? '',
+        log.targetType,
+        log.targetId ?? '',
+        log.action,
+        log.ip ?? '',
+        log.userAgent ?? '',
+        log.requestId ?? '',
+        JSON.stringify(log.metadata ?? {}),
+      ]
+        .map((value) => escape(String(value)))
+        .join(','),
+    );
+    return [headers.join(','), ...rows].join('\n');
   }
 }
 

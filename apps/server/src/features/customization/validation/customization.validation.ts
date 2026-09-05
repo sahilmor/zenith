@@ -231,6 +231,11 @@ export const templateParamsRouteSchema = z.object({
   params: z.object({ templateId: objectId }),
 });
 
+export const applyTemplateRouteSchema = z.object({
+  params: z.object({ workspaceId: objectId, templateId: objectId }),
+  body: z.object({ target: z.record(z.unknown()).default({}) }),
+});
+
 export type CreateCustomFieldInput = z.infer<typeof createCustomFieldRouteSchema>['body'];
 export type UpdateCustomFieldInput = z.infer<typeof updateCustomFieldRouteSchema>['body'];
 export type CreateTaskTypeInput = z.infer<typeof createTaskTypeRouteSchema>['body'];
@@ -239,3 +244,4 @@ export type TransitionInput = z.infer<typeof transitionParamsRouteSchema>['body'
 export type CreateFormInput = z.infer<typeof createFormRouteSchema>['body'];
 export type SubmitPublicFormInput = z.infer<typeof submitPublicFormRouteSchema>['body'];
 export type CreateTemplateInput = z.infer<typeof createTemplateRouteSchema>['body'];
+export type ApplyTemplateInput = z.infer<typeof applyTemplateRouteSchema>['body'];

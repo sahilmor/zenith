@@ -32,6 +32,47 @@ export class AuditLogRepository {
     page: number;
     limit: number;
   }): Promise<{ items: AuditLogDocument[]; total: number }> {
+    const query = this.toFilter(filters);
+    const skip = (filters.page - 1) * filters.limit;
+    const [items, total] = await Promise.all([
+      AuditLogModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(filters.limit)
+        .exec() as Promise<AuditLogDocument[]>,
+      AuditLogModel.countDocuments(query).exec(),
+    ]);
+    return { items, total };
+  }
+
+  public async listAll(
+    filters: {
+      workspaceId?: Types.ObjectId;
+      actorId?: Types.ObjectId;
+      targetType?: string;
+      action?: string;
+      search?: string;
+    },
+    limit: number,
+  ): Promise<AuditLogDocument[]> {
+    return AuditLogModel.find(this.toFilter(filters))
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec() as Promise<AuditLogDocument[]>;
+  }
+
+  public async deleteOlderThan(before: Date): Promise<number> {
+    const result = await AuditLogModel.deleteMany({ createdAt: { $lt: before } }).exec();
+    return result.deletedCount ?? 0;
+  }
+
+  private toFilter(filters: {
+    workspaceId?: Types.ObjectId;
+    actorId?: Types.ObjectId;
+    targetType?: string;
+    action?: string;
+    search?: string;
+  }): FilterQuery<AuditLogDocument> {
     const query: FilterQuery<AuditLogDocument> = {};
     if (filters.workspaceId) query.workspaceId = filters.workspaceId;
     if (filters.actorId) query.actorId = filters.actorId;
@@ -44,16 +85,7 @@ export class AuditLogRepository {
         { requestId: { $regex: filters.search, $options: 'i' } },
       ];
     }
-    const skip = (filters.page - 1) * filters.limit;
-    const [items, total] = await Promise.all([
-      AuditLogModel.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(filters.limit)
-        .exec() as Promise<AuditLogDocument[]>,
-      AuditLogModel.countDocuments(query).exec(),
-    ]);
-    return { items, total };
+    return query;
   }
 }
 

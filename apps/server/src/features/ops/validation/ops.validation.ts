@@ -14,6 +14,16 @@ export const listAuditLogsSchema = {
   }),
 };
 
+export const exportAuditLogsSchema = {
+  query: z.object({
+    workspaceId: objectId.optional(),
+    actorId: objectId.optional(),
+    targetType: z.string().trim().min(1).max(80).optional(),
+    action: z.string().trim().min(1).max(120).optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+  }),
+};
+
 export const upsertFeatureFlagSchema = {
   body: z.object({
     key: z
@@ -85,6 +95,7 @@ export const apiKeyParamsSchema = {
 };
 
 export const listAuditLogsRouteSchema = z.object(listAuditLogsSchema);
+export const exportAuditLogsRouteSchema = z.object(exportAuditLogsSchema);
 export const upsertFeatureFlagRouteSchema = z.object(upsertFeatureFlagSchema);
 export const evaluateFeatureFlagRouteSchema = z.object(evaluateFeatureFlagSchema);
 export const createWebhookRouteSchema = z.object(createWebhookSchema);
@@ -96,6 +107,7 @@ export const createApiKeyRouteSchema = z.object(createApiKeySchema);
 export const apiKeyParamsRouteSchema = z.object(apiKeyParamsSchema);
 
 export type ListAuditLogsQuery = z.infer<typeof listAuditLogsSchema.query>;
+export type ExportAuditLogsQuery = z.infer<typeof exportAuditLogsSchema.query>;
 export type UpsertFeatureFlagInput = z.infer<typeof upsertFeatureFlagSchema.body>;
 export type EvaluateFeatureFlagQuery = z.infer<typeof evaluateFeatureFlagSchema.query>;
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema.body>;

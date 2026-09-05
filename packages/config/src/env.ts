@@ -42,6 +42,7 @@ export const serverEnvSchema = z.object({
   DOCUMENT_HEAVY_OPERATION_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   WEBHOOK_SIGNING_SECRET: z.string().min(16).default('development-webhook-signing-secret'),
   PUBLIC_API_KEY_PREFIX: z.string().min(2).default('zenith'),
+  AUDIT_LOG_RETENTION_DAYS: z.coerce.number().int().min(0).default(365),
   BILLING_ENABLED: z.coerce.boolean().default(false),
   BILLING_PROVIDER: z.enum(['local', 'stripe']).default('local'),
   BILLING_SUCCESS_URL: optionalUrl,

@@ -10,6 +10,7 @@ import { webhookService } from '../services/webhook.service.js';
 import { apiKeyService } from '../services/api-key.service.js';
 import type {
   EvaluateFeatureFlagQuery,
+  ExportAuditLogsQuery,
   ListAuditLogsQuery,
   ListJobsQuery,
 } from '../validation/ops.validation.js';
@@ -26,6 +27,14 @@ export const listAuditLogs: RequestHandler = asyncHandler(async (request, respon
     'Audit logs retrieved',
     await auditLogService.list(request.query as unknown as ListAuditLogsQuery),
   );
+});
+
+export const exportAuditLogs: RequestHandler = asyncHandler(async (request, response) => {
+  const csv = await auditLogService.exportCsv(request.query as unknown as ExportAuditLogsQuery);
+  const stamp = new Date().toISOString().slice(0, 10);
+  response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  response.setHeader('Content-Disposition', `attachment; filename="audit-logs-${stamp}.csv"`);
+  response.status(200).send(csv);
 });
 
 export const listFeatureFlags: RequestHandler = asyncHandler(async (_request, response) => {
