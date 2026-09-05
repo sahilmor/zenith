@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
+import { ErrorState } from '@/components/common/error-state';
 import { Skeleton } from '@/components/common/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -165,6 +166,12 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
     );
   }
 
+  if (dashboard.isError) {
+    return (
+      <ErrorState title="Unable to load CRM data" description="Please refresh and try again." />
+    );
+  }
+
   const data = dashboard.data;
 
   return (
@@ -270,27 +277,44 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
             </Button>
           </form>
           <div className="space-y-3">
-            {(accounts.data ?? []).slice(0, 6).map((account) => (
-              <div key={account.id} className="rounded-md border border-[var(--app-border)] p-3">
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <p className="truncate text-sm font-medium text-[var(--app-text)]">
-                    {account.name}
-                  </p>
-                  <span className="text-xs capitalize text-[var(--app-muted)]">
-                    {account.healthStatus.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-panel-soft)]">
+            {accounts.isLoading ? (
+              <>
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </>
+            ) : accounts.isError ? (
+              <ErrorState
+                title="Unable to load accounts"
+                description="Please refresh and try again."
+              />
+            ) : (
+              <>
+                {(accounts.data ?? []).slice(0, 6).map((account) => (
                   <div
-                    className={`h-full rounded-full ${healthBarClass(account.healthScore)}`}
-                    style={{ width: `${Math.max(0, Math.min(100, account.healthScore))}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-            {accounts.data?.length === 0 ? (
-              <p className="text-sm text-[var(--app-muted)]">No accounts yet.</p>
-            ) : null}
+                    key={account.id}
+                    className="rounded-md border border-[var(--app-border)] p-3"
+                  >
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <p className="truncate text-sm font-medium text-[var(--app-text)]">
+                        {account.name}
+                      </p>
+                      <span className="text-xs capitalize text-[var(--app-muted)]">
+                        {account.healthStatus.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-panel-soft)]">
+                      <div
+                        className={`h-full rounded-full ${healthBarClass(account.healthScore)}`}
+                        style={{ width: `${Math.max(0, Math.min(100, account.healthScore))}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {accounts.data?.length === 0 ? (
+                  <p className="text-sm text-[var(--app-muted)]">No accounts yet.</p>
+                ) : null}
+              </>
+            )}
           </div>
         </Card>
 
@@ -380,33 +404,49 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
             </Button>
           </form>
           <div className="space-y-3">
-            {(leads.data ?? []).slice(0, 6).map((lead) => (
-              <div key={lead.id} className="rounded-md border border-[var(--app-border)] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-[var(--app-text)]">{lead.companyName}</p>
-                    <p className="text-xs text-[var(--app-muted)]">
-                      {lead.contactName} · score {lead.score}
-                    </p>
+            {leads.isLoading ? (
+              <>
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </>
+            ) : leads.isError ? (
+              <ErrorState
+                title="Unable to load leads"
+                description="Please refresh and try again."
+              />
+            ) : (
+              <>
+                {(leads.data ?? []).slice(0, 6).map((lead) => (
+                  <div key={lead.id} className="rounded-md border border-[var(--app-border)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--app-text)]">
+                          {lead.companyName}
+                        </p>
+                        <p className="text-xs text-[var(--app-muted)]">
+                          {lead.contactName} · score {lead.score}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={lead.status === 'converted' || convertLead.isPending}
+                        loading={convertLead.isPending}
+                        onClick={() => {
+                          if (!convertLead.isPending) convertLead.mutate(lead.id);
+                        }}
+                      >
+                        Convert
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={lead.status === 'converted' || convertLead.isPending}
-                    loading={convertLead.isPending}
-                    onClick={() => {
-                      if (!convertLead.isPending) convertLead.mutate(lead.id);
-                    }}
-                  >
-                    Convert
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {leads.data?.length === 0 ? (
-              <p className="text-sm text-[var(--app-muted)]">No leads yet.</p>
-            ) : null}
+                ))}
+                {leads.data?.length === 0 ? (
+                  <p className="text-sm text-[var(--app-muted)]">No leads yet.</p>
+                ) : null}
+              </>
+            )}
           </div>
         </Card>
       </section>
@@ -425,15 +465,27 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
             ))}
           </div>
           <div className="mt-4 space-y-3">
-            {(deals.data ?? []).slice(0, 5).map((deal) => (
-              <div
-                key={deal.id}
-                className="flex items-center justify-between rounded-md border border-[var(--app-border)] p-3 text-sm"
-              >
-                <span className="font-medium text-[var(--app-text)]">{deal.name}</span>
-                <span className="text-[var(--app-muted)]">{money(deal.value)}</span>
-              </div>
-            ))}
+            {deals.isLoading ? (
+              <>
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </>
+            ) : deals.isError ? (
+              <ErrorState
+                title="Unable to load deals"
+                description="Please refresh and try again."
+              />
+            ) : (
+              (deals.data ?? []).slice(0, 5).map((deal) => (
+                <div
+                  key={deal.id}
+                  className="flex items-center justify-between rounded-md border border-[var(--app-border)] p-3 text-sm"
+                >
+                  <span className="font-medium text-[var(--app-text)]">{deal.name}</span>
+                  <span className="text-[var(--app-muted)]">{money(deal.value)}</span>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 
