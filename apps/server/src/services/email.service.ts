@@ -15,6 +15,14 @@ interface AuthEmailInput {
   url: string;
 }
 
+interface NotificationEmailInput {
+  to: string;
+  name: string;
+  title: string;
+  message: string;
+  actionUrl: string;
+}
+
 interface EmailMessage {
   to: string;
   subject: string;
@@ -37,6 +45,7 @@ export interface EmailSender {
   sendWorkspaceInvitation(input: InvitationEmailInput): Promise<void>;
   sendEmailVerification(input: AuthEmailInput): Promise<void>;
   sendPasswordReset(input: AuthEmailInput): Promise<void>;
+  sendNotification(input: NotificationEmailInput): Promise<void>;
   isConfigured(): boolean;
 }
 
@@ -103,6 +112,24 @@ export class EmailService implements EmailSender {
     await this.send({
       to: input.to,
       subject: 'Reset your Zenith password',
+      ...email,
+    });
+  }
+
+  public async sendNotification(input: NotificationEmailInput): Promise<void> {
+    const email = this.renderTemplate({
+      title: input.title,
+      preheader: input.message,
+      greeting: `Hi ${input.name}`,
+      intro: 'You have a new notification in Zenith.',
+      details: [input.message],
+      ctaLabel: 'View in Zenith',
+      ctaUrl: input.actionUrl,
+      footerNote: 'You can turn off email notifications anytime in your notification preferences.',
+    });
+    await this.send({
+      to: input.to,
+      subject: input.title,
       ...email,
     });
   }
