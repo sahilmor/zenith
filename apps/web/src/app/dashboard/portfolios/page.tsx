@@ -22,7 +22,7 @@ export default function PortfoliosPage() {
         />
         <section className="grid gap-6 lg:grid-cols-[22rem_1fr]">
           <CreatePortfolioPanel workspaceId={workspaceId} />
-          <PortfolioList portfolios={portfolios} />
+          <PortfolioList workspaceId={workspaceId} portfolios={portfolios} />
         </section>
       </div>
     </main>

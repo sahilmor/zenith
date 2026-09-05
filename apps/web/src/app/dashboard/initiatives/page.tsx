@@ -22,7 +22,7 @@ export default function InitiativesPage() {
         />
         <section className="grid gap-6 lg:grid-cols-[22rem_1fr]">
           <CreateInitiativePanel workspaceId={workspaceId} />
-          <InitiativeList initiatives={initiatives} />
+          <InitiativeList workspaceId={workspaceId} initiatives={initiatives} />
         </section>
       </div>
     </main>

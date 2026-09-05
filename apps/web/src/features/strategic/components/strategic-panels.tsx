@@ -8,10 +8,22 @@ import type {
   StrategicCheckInSummary,
   StrategicDashboardSummary,
   StrategicHealth,
+  StrategicLinkEntityType,
   StrategicStatus,
 } from '@pm/types';
 import Link from 'next/link';
-import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Flag, Target } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Flag,
+  Link2,
+  Target,
+  X,
+} from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
@@ -19,6 +31,7 @@ import { Skeleton } from '@/components/common/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useProjects } from '@/features/projects/api/project-hooks';
 import {
   useArchiveGoal,
   useCreateCheckIn,
@@ -26,8 +39,14 @@ import {
   useCreateInitiative,
   useCreateKeyResult,
   useCreatePortfolio,
+  useCreateStrategicLink,
+  useDeleteStrategicLink,
+  useGoals,
+  useInitiatives,
   useRestoreGoal,
+  useStrategicLinks,
 } from '@/features/strategic/api/strategic-hooks';
+import { useTaskList } from '@/features/tasks/api/task-hooks';
 import { cn } from '@/lib/utils';
 
 interface ResourceQuery<TData> {
@@ -131,6 +150,133 @@ function DescriptionField({
         className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30 focus:ring-2 focus:ring-white/10"
       />
     </label>
+  );
+}
+
+interface LinkOption {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * Manages strategic links from one source entity to a set of target entities
+ * of a single type (e.g. a goal's linked projects, or a key result's linked
+ * tasks). This is the UI the backend rollup engine (strategic.service.ts's
+ * recalculateGoal/recalculateKeyResult/recalculateInitiative/
+ * recalculatePortfolio) has always supported but never had a way to reach.
+ */
+function EntityLinkManager({
+  title,
+  workspaceId,
+  sourceType,
+  sourceId,
+  targetType,
+  options,
+  optionsLoading,
+  emptyOptionsLabel,
+}: {
+  readonly title: string;
+  readonly workspaceId: string;
+  readonly sourceType: StrategicLinkEntityType;
+  readonly sourceId: string;
+  readonly targetType: StrategicLinkEntityType;
+  readonly options: LinkOption[];
+  readonly optionsLoading: boolean;
+  readonly emptyOptionsLabel: string;
+}) {
+  const links = useStrategicLinks(workspaceId);
+  const createLink = useCreateStrategicLink();
+  const deleteLink = useDeleteStrategicLink(workspaceId);
+  const [selectedId, setSelectedId] = useState('');
+
+  const matchingLinks = (links.data ?? []).filter(
+    (link) =>
+      link.sourceType === sourceType &&
+      link.sourceId === sourceId &&
+      link.targetType === targetType,
+  );
+  const linkedIds = new Set(matchingLinks.map((link) => link.targetId));
+  const availableOptions = options.filter((option) => !linkedIds.has(option.id));
+  const labelFor = (id: string) => options.find((option) => option.id === id)?.label ?? id;
+
+  const handleLink = () => {
+    if (!selectedId || createLink.isPending) return;
+    createLink.mutate(
+      {
+        workspaceId,
+        sourceType,
+        sourceId,
+        targetType,
+        targetId: selectedId,
+        relationshipType: 'contributes_to',
+      },
+      { onSuccess: () => setSelectedId('') },
+    );
+  };
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-slate-500">
+        <Link2 className="size-3.5" />
+        {title}
+      </div>
+      <div className="mt-3 space-y-2">
+        {links.isLoading ? (
+          <Skeleton className="h-8 w-full" />
+        ) : matchingLinks.length === 0 ? (
+          <p className="text-sm text-slate-500">Nothing linked yet.</p>
+        ) : (
+          matchingLinks.map((link) => (
+            <div
+              key={link.id}
+              className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-200"
+            >
+              <span className="min-w-0 truncate">{labelFor(link.targetId)}</span>
+              <button
+                type="button"
+                aria-label={`Remove link to ${labelFor(link.targetId)}`}
+                onClick={() => deleteLink.mutate(link.id)}
+                disabled={deleteLink.isPending}
+                className="shrink-0 rounded-md p-1 text-slate-500 hover:bg-white/10 hover:text-white"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <select
+          value={selectedId}
+          onChange={(event) => setSelectedId(event.target.value)}
+          disabled={optionsLoading || availableOptions.length === 0}
+          className="h-10 w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none focus:border-white/30"
+        >
+          <option value="">
+            {optionsLoading
+              ? 'Loading…'
+              : availableOptions.length === 0
+                ? emptyOptionsLabel
+                : 'Select to link'}
+          </option>
+          {availableOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handleLink}
+          loading={createLink.isPending}
+          disabled={!selectedId || createLink.isPending}
+        >
+          Link
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -318,6 +464,11 @@ export function GoalDetailsPanel({
 }) {
   const archiveGoal = useArchiveGoal();
   const restoreGoal = useRestoreGoal();
+  const projects = useProjects(goal.workspaceId);
+  const projectOptions: LinkOption[] = (projects.data ?? []).map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
   return (
     <div className="space-y-6">
       <Card className="rounded-lg p-6">
@@ -344,11 +495,23 @@ export function GoalDetailsPanel({
         <div className="mt-6">
           <ProgressBar value={goal.calculatedProgress} />
         </div>
+        <div className="mt-6">
+          <EntityLinkManager
+            title="Linked projects"
+            workspaceId={goal.workspaceId}
+            sourceType="goal"
+            sourceId={goal.id}
+            targetType="project"
+            options={projectOptions}
+            optionsLoading={projects.isLoading}
+            emptyOptionsLabel="No projects to link"
+          />
+        </div>
       </Card>
       <section className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-4">
           <CreateKeyResultPanel goalId={goal.id} />
-          <KeyResultList keyResults={keyResults} />
+          <KeyResultList workspaceId={goal.workspaceId} keyResults={keyResults} />
         </div>
         <div className="space-y-4">
           <CreateCheckInPanel goalId={goal.id} />
@@ -359,16 +522,29 @@ export function GoalDetailsPanel({
   );
 }
 
+const keyResultMeasurementLabels: Record<
+  'percentage' | 'task_completion' | 'project_progress',
+  string
+> = {
+  percentage: 'Manual (percentage)',
+  task_completion: 'Automatic — linked tasks completed',
+  project_progress: 'Automatic — linked project progress',
+};
+
 function CreateKeyResultPanel({ goalId }: { readonly goalId: string }) {
   const createKeyResult = useCreateKeyResult(goalId);
   const [title, setTitle] = useState('');
+  const [measurementType, setMeasurementType] = useState<
+    'percentage' | 'task_completion' | 'project_progress'
+  >('percentage');
+  const isAutomatic = measurementType !== 'percentage';
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     createKeyResult.mutate(
       {
         title: title.trim(),
-        measurementType: 'percentage',
+        measurementType,
         startValue: parseNumber(form.get('startValue'), 0),
         currentValue: parseNumber(form.get('currentValue'), 0),
         targetValue: parseNumber(form.get('targetValue'), 100),
@@ -376,6 +552,7 @@ function CreateKeyResultPanel({ goalId }: { readonly goalId: string }) {
       {
         onSuccess: () => {
           setTitle('');
+          setMeasurementType('percentage');
           event.currentTarget.reset();
         },
       },
@@ -393,11 +570,37 @@ function CreateKeyResultPanel({ goalId }: { readonly goalId: string }) {
           placeholder="Improve activation from 36% to 52%"
           required
         />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Input name="startValue" label="Start" type="number" defaultValue={0} />
-          <Input name="currentValue" label="Current" type="number" defaultValue={0} />
-          <Input name="targetValue" label="Target" type="number" defaultValue={100} />
-        </div>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-slate-200">Measurement</span>
+          <select
+            value={measurementType}
+            onChange={(event) =>
+              setMeasurementType(
+                event.target.value as 'percentage' | 'task_completion' | 'project_progress',
+              )
+            }
+            className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10"
+          >
+            {Object.entries(keyResultMeasurementLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {isAutomatic ? (
+          <p className="text-xs text-slate-500">
+            Progress will be calculated from linked{' '}
+            {measurementType === 'task_completion' ? 'tasks' : 'projects'} once this key result is
+            created — link them from the key result list below.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input name="startValue" label="Start" type="number" defaultValue={0} />
+            <Input name="currentValue" label="Current" type="number" defaultValue={0} />
+            <Input name="targetValue" label="Target" type="number" defaultValue={100} />
+          </div>
+        )}
         <Button type="submit" disabled={title.trim().length === 0}>
           Add key result
         </Button>
@@ -406,7 +609,16 @@ function CreateKeyResultPanel({ goalId }: { readonly goalId: string }) {
   );
 }
 
-function KeyResultList({ keyResults }: { readonly keyResults: ResourceQuery<KeyResultSummary[]> }) {
+function KeyResultList({
+  workspaceId,
+  keyResults,
+}: {
+  readonly workspaceId: string;
+  readonly keyResults: ResourceQuery<KeyResultSummary[]>;
+}) {
+  const projects = useProjects(workspaceId);
+  const tasks = useTaskList({ workspaceId });
+
   if (keyResults.isLoading) {
     return <Skeleton className="h-32 w-full rounded-lg" />;
   }
@@ -423,6 +635,14 @@ function KeyResultList({ keyResults }: { readonly keyResults: ResourceQuery<KeyR
       />
     );
   }
+  const projectOptions: LinkOption[] = (projects.data ?? []).map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
+  const taskOptions: LinkOption[] = (tasks.data?.items ?? []).map((task) => ({
+    id: task.id,
+    label: task.title,
+  }));
   return (
     <div className="space-y-3">
       {items.map((keyResult) => (
@@ -437,6 +657,34 @@ function KeyResultList({ keyResults }: { readonly keyResults: ResourceQuery<KeyR
           <p className="mt-3 text-xs text-slate-500">
             {keyResult.currentValue} of {keyResult.targetValue}
           </p>
+          {keyResult.measurementType === 'task_completion' ? (
+            <div className="mt-4">
+              <EntityLinkManager
+                title="Linked tasks"
+                workspaceId={workspaceId}
+                sourceType="key_result"
+                sourceId={keyResult.id}
+                targetType="task"
+                options={taskOptions}
+                optionsLoading={tasks.isLoading}
+                emptyOptionsLabel="No tasks to link"
+              />
+            </div>
+          ) : null}
+          {keyResult.measurementType === 'project_progress' ? (
+            <div className="mt-4">
+              <EntityLinkManager
+                title="Linked projects"
+                workspaceId={workspaceId}
+                sourceType="key_result"
+                sourceId={keyResult.id}
+                targetType="project"
+                options={projectOptions}
+                optionsLoading={projects.isLoading}
+                emptyOptionsLabel="No projects to link"
+              />
+            </div>
+          ) : null}
         </Card>
       ))}
     </div>
@@ -613,10 +861,23 @@ function StrategicCreatePanel({
 }
 
 export function InitiativeList({
+  workspaceId,
   initiatives,
 }: {
+  readonly workspaceId: string | null;
   readonly initiatives: ResourceQuery<InitiativeSummary[]>;
 }) {
+  const goals = useGoals(workspaceId);
+  const projects = useProjects(workspaceId);
+  const goalOptions: LinkOption[] = (goals.data ?? []).map((goal) => ({
+    id: goal.id,
+    label: goal.title,
+  }));
+  const projectOptions: LinkOption[] = (projects.data ?? []).map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
+
   if (initiatives.isLoading) {
     return <Skeleton className="h-56 w-full rounded-lg" />;
   }
@@ -644,17 +905,55 @@ export function InitiativeList({
           status={initiative.status}
           progress={initiative.progress}
           meta={`${initiative.priority} priority`}
-        />
+        >
+          {workspaceId ? (
+            <div className="space-y-3">
+              <EntityLinkManager
+                title="Linked goals"
+                workspaceId={workspaceId}
+                sourceType="initiative"
+                sourceId={initiative.id}
+                targetType="goal"
+                options={goalOptions}
+                optionsLoading={goals.isLoading}
+                emptyOptionsLabel="No goals to link"
+              />
+              <EntityLinkManager
+                title="Linked projects"
+                workspaceId={workspaceId}
+                sourceType="initiative"
+                sourceId={initiative.id}
+                targetType="project"
+                options={projectOptions}
+                optionsLoading={projects.isLoading}
+                emptyOptionsLabel="No projects to link"
+              />
+            </div>
+          ) : null}
+        </StrategyCard>
       ))}
     </section>
   );
 }
 
 export function PortfolioList({
+  workspaceId,
   portfolios,
 }: {
+  readonly workspaceId: string | null;
   readonly portfolios: ResourceQuery<PortfolioSummary[]>;
 }) {
+  const initiatives = useInitiatives(workspaceId);
+  const projects = useProjects(workspaceId);
+  const initiativeOptions: LinkOption[] = (initiatives.data ?? []).map((initiative) => ({
+    id: initiative.id,
+    label: initiative.name,
+  }));
+  const projectOptions: LinkOption[] = (projects.data ?? []).map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
+
   if (portfolios.isLoading) {
     return <Skeleton className="h-56 w-full rounded-lg" />;
   }
@@ -682,7 +981,32 @@ export function PortfolioList({
           status={portfolio.status}
           progress={portfolio.progress}
           meta="Portfolio"
-        />
+        >
+          {workspaceId ? (
+            <div className="space-y-3">
+              <EntityLinkManager
+                title="Linked initiatives"
+                workspaceId={workspaceId}
+                sourceType="portfolio"
+                sourceId={portfolio.id}
+                targetType="initiative"
+                options={initiativeOptions}
+                optionsLoading={initiatives.isLoading}
+                emptyOptionsLabel="No initiatives to link"
+              />
+              <EntityLinkManager
+                title="Linked projects"
+                workspaceId={workspaceId}
+                sourceType="portfolio"
+                sourceId={portfolio.id}
+                targetType="project"
+                options={projectOptions}
+                optionsLoading={projects.isLoading}
+                emptyOptionsLabel="No projects to link"
+              />
+            </div>
+          ) : null}
+        </StrategyCard>
       ))}
     </section>
   );
@@ -695,6 +1019,7 @@ function StrategyCard({
   status,
   progress,
   meta,
+  children,
 }: {
   readonly title: string;
   readonly description: string | null;
@@ -702,7 +1027,9 @@ function StrategyCard({
   readonly status: StrategicStatus;
   readonly progress: number;
   readonly meta: string;
+  readonly children?: React.ReactNode;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <Card className="rounded-lg p-5">
       <div className="flex flex-wrap gap-2">
@@ -716,7 +1043,21 @@ function StrategyCard({
       <div className="mt-5">
         <ProgressBar value={progress} />
       </div>
-      <p className="mt-4 text-xs capitalize text-slate-500">{meta}</p>
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-xs capitalize text-slate-500">{meta}</p>
+        {children ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="flex items-center gap-1 text-xs font-medium text-emerald-300 hover:text-emerald-200"
+          >
+            <Link2 className="size-3.5" />
+            Manage links
+            {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </button>
+        ) : null}
+      </div>
+      {expanded && children ? <div className="mt-4">{children}</div> : null}
     </Card>
   );
 }

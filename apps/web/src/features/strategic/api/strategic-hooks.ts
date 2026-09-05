@@ -386,6 +386,24 @@ export function useRestoreGoal() {
   });
 }
 
+export function useDeleteStrategicLink(workspaceId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['strategic-link-delete'],
+    meta: {
+      loadingTitle: 'Removing link',
+      successTitle: 'Link removed',
+      errorTitle: 'Unable to remove link',
+    },
+    mutationFn: (linkId: string) =>
+      apiRequest<unknown>(`/api/strategic-links/${linkId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: strategicKeys.links(workspaceId) });
+      queryClient.invalidateQueries({ queryKey: strategicKeys.dashboard(workspaceId) });
+    },
+  });
+}
+
 export function useCreateStrategicLink() {
   const queryClient = useQueryClient();
   return useMutation({
