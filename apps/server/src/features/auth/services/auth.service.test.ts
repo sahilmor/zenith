@@ -129,6 +129,75 @@ describe('Authentication flows', () => {
     }
   });
 
+  it('revokes the refresh token on logout so it cannot be reused', async () => {
+    const app = createApp();
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Ada', email: 'ada@example.com', password: 'Password1' })
+      .expect(201);
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ada@example.com', password: 'Password1' })
+      .expect(200);
+    const refreshToken = login.body.data.refreshToken as string;
+
+    await request(app).post('/api/auth/logout').send({ refreshToken }).expect(200);
+
+    await request(app).post('/api/auth/refresh').send({ refreshToken }).expect(401);
+  });
+
+  it('rejects reusing a refresh token after it has already been rotated', async () => {
+    const app = createApp();
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Ada', email: 'ada@example.com', password: 'Password1' })
+      .expect(201);
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ada@example.com', password: 'Password1' })
+      .expect(200);
+    const refreshToken = login.body.data.refreshToken as string;
+
+    await request(app).post('/api/auth/refresh').send({ refreshToken }).expect(200);
+    await request(app).post('/api/auth/refresh').send({ refreshToken }).expect(401);
+  });
+
+  it('revokes all outstanding refresh tokens when the password is reset', async () => {
+    const app = createApp();
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ name: 'Ada', email: 'ada@example.com', password: 'Password1' })
+      .expect(201);
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'ada@example.com', password: 'Password1' })
+      .expect(200);
+    const refreshTokenBeforeReset = login.body.data.refreshToken as string;
+
+    await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'ada@example.com' })
+      .expect(200);
+    const user = await UserModel.findOne({ email: 'ada@example.com' }).select(
+      '+passwordResetToken +passwordResetExpiresAt',
+    );
+    if (!user) throw new Error('Expected user');
+    const resetToken = 'reset-token-with-production-length-123';
+    user.passwordResetToken = hashToken(resetToken);
+    user.passwordResetExpiresAt = new Date(Date.now() + 60_000);
+    await user.save();
+
+    await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: resetToken, password: 'NewPassword1' })
+      .expect(200);
+
+    await request(app)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: refreshTokenBeforeReset })
+      .expect(401);
+  });
+
   it('verifies email with a valid token', async () => {
     const app = createApp();
     await request(app)
