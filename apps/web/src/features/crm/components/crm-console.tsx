@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Activity,
   Building2,
   CircleDollarSign,
   HeartPulse,
@@ -17,11 +18,17 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   type CreateCrmAccountInput,
+  type CreateCrmContactInput,
+  type CreateCrmDealInput,
   type CreateCrmLeadInput,
   useConvertCrmLead,
   useCreateCrmAccount,
+  useCreateCrmActivity,
+  useCreateCrmContact,
+  useCreateCrmDeal,
   useCreateCrmLead,
   useCrmAccounts,
+  useCrmContacts,
   useCrmDashboard,
   useCrmDeals,
   useCrmLeads,
@@ -35,6 +42,19 @@ const money = (value: number): string =>
   }).format(value);
 
 type AccountStatus = NonNullable<CreateCrmAccountInput['status']>;
+type DealStage = NonNullable<CreateCrmDealInput['stage']>;
+type ActivityType = 'note' | 'email' | 'call' | 'meeting' | 'task' | 'follow_up';
+
+const dealStages: DealStage[] = [
+  'qualification',
+  'discovery',
+  'proposal',
+  'negotiation',
+  'closed_won',
+  'closed_lost',
+];
+
+const activityTypes: ActivityType[] = ['note', 'email', 'call', 'meeting', 'task', 'follow_up'];
 
 const toOptionalNumber = (value: string): number | undefined => {
   if (!value.trim()) return undefined;
@@ -58,10 +78,14 @@ const healthBarClass = (score: number): string => {
 export function CrmConsole({ workspaceId }: { readonly workspaceId: string | null }) {
   const dashboard = useCrmDashboard(workspaceId);
   const accounts = useCrmAccounts(workspaceId);
+  const contacts = useCrmContacts(workspaceId);
   const leads = useCrmLeads(workspaceId);
   const deals = useCrmDeals(workspaceId);
   const createAccount = useCreateCrmAccount(workspaceId);
+  const createContact = useCreateCrmContact(workspaceId);
   const createLead = useCreateCrmLead(workspaceId);
+  const createDeal = useCreateCrmDeal(workspaceId);
+  const createActivity = useCreateCrmActivity(workspaceId);
   const convertLead = useConvertCrmLead(workspaceId);
   const [accountForm, setAccountForm] = useState({
     name: '',
@@ -79,6 +103,27 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
     estimatedValue: '',
     source: '',
     tags: '',
+  });
+  const [contactForm, setContactForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    title: '',
+    accountId: '',
+  });
+  const [dealForm, setDealForm] = useState({
+    accountId: '',
+    contactId: '',
+    name: '',
+    stage: 'qualification' as DealStage,
+    value: '',
+  });
+  const [activityForm, setActivityForm] = useState({
+    type: 'note' as ActivityType,
+    title: '',
+    body: '',
+    accountId: '',
   });
 
   const handleCreateAccount = (event: FormEvent<HTMLFormElement>) => {
@@ -143,6 +188,72 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
     });
   };
 
+  const handleCreateContact = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const firstName = contactForm.firstName.trim();
+    const email = contactForm.email.trim();
+    if (!firstName || !email || createContact.isPending) return;
+
+    const input: CreateCrmContactInput = {
+      firstName,
+      email,
+      lastName: contactForm.lastName.trim() || null,
+      phone: contactForm.phone.trim() || null,
+      title: contactForm.title.trim() || null,
+      accountId: contactForm.accountId || null,
+    };
+
+    createContact.mutate(input, {
+      onSuccess: () =>
+        setContactForm({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          title: '',
+          accountId: '',
+        }),
+    });
+  };
+
+  const handleCreateDeal = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = dealForm.name.trim();
+    if (!name || !dealForm.accountId || createDeal.isPending) return;
+    const value = toOptionalNumber(dealForm.value);
+
+    const input: CreateCrmDealInput = {
+      accountId: dealForm.accountId,
+      contactId: dealForm.contactId || null,
+      name,
+      stage: dealForm.stage,
+      ...(value === undefined ? {} : { value }),
+    };
+
+    createDeal.mutate(input, {
+      onSuccess: () =>
+        setDealForm({ accountId: '', contactId: '', name: '', stage: 'qualification', value: '' }),
+    });
+  };
+
+  const handleLogActivity = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const title = activityForm.title.trim();
+    if (!title || !activityForm.accountId || createActivity.isPending) return;
+
+    createActivity.mutate(
+      {
+        type: activityForm.type,
+        title,
+        body: activityForm.body.trim() || null,
+        accountId: activityForm.accountId,
+      },
+      {
+        onSuccess: () => setActivityForm({ type: 'note', title: '', body: '', accountId: '' }),
+      },
+    );
+  };
+
   if (!workspaceId) {
     return (
       <EmptyState
@@ -187,7 +298,7 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
         />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <section className="grid gap-4 lg:grid-cols-3">
         <Card className="rounded-lg p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -449,11 +560,186 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
             )}
           </div>
         </Card>
+
+        <Card className="rounded-lg p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--app-text)]">Contacts</h2>
+              <p className="mt-1 text-xs text-[var(--app-muted)]">People at your accounts.</p>
+            </div>
+          </div>
+          <form
+            onSubmit={handleCreateContact}
+            className="mb-4 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 sm:grid-cols-2"
+          >
+            <Input
+              label="First name"
+              value={contactForm.firstName}
+              onChange={(event) =>
+                setContactForm((form) => ({ ...form, firstName: event.target.value }))
+              }
+              placeholder="Jane"
+              required
+            />
+            <Input
+              label="Last name"
+              value={contactForm.lastName}
+              onChange={(event) =>
+                setContactForm((form) => ({ ...form, lastName: event.target.value }))
+              }
+              placeholder="Cooper"
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={contactForm.email}
+              onChange={(event) =>
+                setContactForm((form) => ({ ...form, email: event.target.value }))
+              }
+              placeholder="jane@acme.com"
+              required
+            />
+            <Input
+              label="Title"
+              value={contactForm.title}
+              onChange={(event) =>
+                setContactForm((form) => ({ ...form, title: event.target.value }))
+              }
+              placeholder="VP Engineering"
+            />
+            <label className="block min-w-0 space-y-2 sm:col-span-2">
+              <span className="text-sm font-medium text-[var(--app-text)]">Account</span>
+              <select
+                value={contactForm.accountId}
+                onChange={(event) =>
+                  setContactForm((form) => ({ ...form, accountId: event.target.value }))
+                }
+                className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+              >
+                <option value="">No account</option>
+                {(accounts.data ?? []).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              className="sm:col-span-2"
+              loading={createContact.isPending}
+              disabled={
+                !contactForm.firstName.trim() ||
+                !contactForm.email.trim() ||
+                createContact.isPending
+              }
+            >
+              Add contact
+            </Button>
+          </form>
+          <div className="space-y-3">
+            {contacts.isLoading ? (
+              <>
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </>
+            ) : contacts.isError ? (
+              <ErrorState
+                title="Unable to load contacts"
+                description="Please refresh and try again."
+              />
+            ) : (
+              <>
+                {(contacts.data ?? []).slice(0, 6).map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="rounded-md border border-[var(--app-border)] p-3"
+                  >
+                    <p className="truncate text-sm font-medium text-[var(--app-text)]">
+                      {contact.firstName} {contact.lastName ?? ''}
+                    </p>
+                    <p className="truncate text-xs text-[var(--app-muted)]">
+                      {contact.title ? `${contact.title} · ` : ''}
+                      {contact.email}
+                    </p>
+                  </div>
+                ))}
+                {contacts.data?.length === 0 ? (
+                  <p className="text-sm text-[var(--app-muted)]">No contacts yet.</p>
+                ) : null}
+              </>
+            )}
+          </div>
+        </Card>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <Card className="rounded-lg p-5">
           <h2 className="mb-4 text-sm font-semibold text-[var(--app-text)]">Pipeline</h2>
+          <form
+            onSubmit={handleCreateDeal}
+            className="mb-4 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 sm:grid-cols-2"
+          >
+            <label className="block min-w-0 space-y-2">
+              <span className="text-sm font-medium text-[var(--app-text)]">Account</span>
+              <select
+                value={dealForm.accountId}
+                onChange={(event) =>
+                  setDealForm((form) => ({ ...form, accountId: event.target.value }))
+                }
+                className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+                required
+              >
+                <option value="">Select account</option>
+                {(accounts.data ?? []).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Input
+              label="Deal name"
+              value={dealForm.name}
+              onChange={(event) => setDealForm((form) => ({ ...form, name: event.target.value }))}
+              placeholder="Acme renewal"
+              required
+            />
+            <label className="block min-w-0 space-y-2">
+              <span className="text-sm font-medium text-[var(--app-text)]">Stage</span>
+              <select
+                value={dealForm.stage}
+                onChange={(event) =>
+                  setDealForm((form) => ({ ...form, stage: event.target.value as DealStage }))
+                }
+                className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+              >
+                {dealStages.map((stage) => (
+                  <option key={stage} value={stage}>
+                    {stage.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Input
+              label="Value"
+              type="number"
+              min={0}
+              value={dealForm.value}
+              onChange={(event) => setDealForm((form) => ({ ...form, value: event.target.value }))}
+              placeholder="25000"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="sm:col-span-2"
+              loading={createDeal.isPending}
+              disabled={!dealForm.name.trim() || !dealForm.accountId || createDeal.isPending}
+            >
+              Add deal
+            </Button>
+          </form>
           <div className="grid gap-3 md:grid-cols-3">
             {(data?.dealsByStage ?? []).map((stage) => (
               <div key={stage.stage} className="rounded-md border border-[var(--app-border)] p-3">
@@ -511,6 +797,99 @@ export function CrmConsole({ workspaceId }: { readonly workspaceId: string | nul
           </div>
         </Card>
       </section>
+
+      <Card className="rounded-lg p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[var(--app-text)]">
+          <Activity className="size-4 text-emerald-300" />
+          Activity
+        </div>
+        <form
+          onSubmit={handleLogActivity}
+          className="mb-4 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] p-3 sm:grid-cols-2"
+        >
+          <label className="block min-w-0 space-y-2">
+            <span className="text-sm font-medium text-[var(--app-text)]">Type</span>
+            <select
+              value={activityForm.type}
+              onChange={(event) =>
+                setActivityForm((form) => ({ ...form, type: event.target.value as ActivityType }))
+              }
+              className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+            >
+              {activityTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0 space-y-2">
+            <span className="text-sm font-medium text-[var(--app-text)]">Related account</span>
+            <select
+              value={activityForm.accountId}
+              onChange={(event) =>
+                setActivityForm((form) => ({ ...form, accountId: event.target.value }))
+              }
+              className="h-11 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm text-[var(--app-text)] outline-none focus:border-[var(--app-accent)]"
+              required
+            >
+              <option value="">Select account</option>
+              {(accounts.data ?? []).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Title"
+            value={activityForm.title}
+            onChange={(event) =>
+              setActivityForm((form) => ({ ...form, title: event.target.value }))
+            }
+            placeholder="Discovery call with Acme"
+            required
+          />
+          <Input
+            label="Notes"
+            value={activityForm.body}
+            onChange={(event) => setActivityForm((form) => ({ ...form, body: event.target.value }))}
+            placeholder="Optional details"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            className="sm:col-span-2"
+            loading={createActivity.isPending}
+            disabled={
+              !activityForm.title.trim() || !activityForm.accountId || createActivity.isPending
+            }
+          >
+            Log activity
+          </Button>
+        </form>
+        <div className="space-y-3">
+          {(data?.recentActivities ?? []).map((item) => (
+            <div key={item.id} className="rounded-md border border-[var(--app-border)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-[var(--app-text)]">{item.title}</p>
+                <span className="text-xs capitalize text-[var(--app-muted)]">
+                  {item.type.replace('_', ' ')}
+                </span>
+              </div>
+              {item.body ? (
+                <p className="mt-1 text-xs text-[var(--app-muted)]">{item.body}</p>
+              ) : null}
+              <p className="mt-2 text-xs text-[var(--app-subtle)]">
+                {new Date(item.occurredAt).toLocaleString()}
+              </p>
+            </div>
+          ))}
+          {(data?.recentActivities ?? []).length === 0 ? (
+            <p className="text-sm text-[var(--app-muted)]">No activity logged yet.</p>
+          ) : null}
+        </div>
+      </Card>
     </div>
   );
 }
