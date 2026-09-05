@@ -18,7 +18,7 @@ export function BoardSelector({ boards, selectedBoardId, onSelect }: BoardSelect
           key={board.id}
           onClick={() => onSelect(board.id)}
           className={cn(
-            'shrink-0 rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white',
+            'shrink-0 rounded-lg border border-white/10 px-3 py-2.5 text-sm text-slate-400 transition hover:bg-white/10 hover:text-white sm:py-2',
             board.id === selectedBoardId && 'bg-white/10 text-white',
             board.archived && 'border-red-400/20 text-red-200',
           )}

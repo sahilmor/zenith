@@ -427,9 +427,15 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                   value={spaceName}
                   onChange={(event) => setSpaceName(event.target.value)}
                   placeholder="New space"
+                  aria-label="New space name"
                   className="min-w-0 flex-1 rounded-md border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm outline-none"
                 />
-                <Button size="icon" onClick={handleCreateSpace} disabled={createSpace.isPending}>
+                <Button
+                  size="icon"
+                  onClick={handleCreateSpace}
+                  disabled={createSpace.isPending}
+                  aria-label="Create space"
+                >
                   <Plus className="size-4" />
                 </Button>
               </div>
@@ -463,12 +469,14 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                     value={pageTitle}
                     onChange={(event) => setPageTitle(event.target.value)}
                     placeholder="New page"
+                    aria-label="New page title"
                     className="min-w-0 flex-1 rounded-md border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm outline-none"
                   />
                   <Button
                     size="icon"
                     onClick={handleCreatePage}
                     disabled={!selectedSpaceId || createPage.isPending}
+                    aria-label="Create page"
                   >
                     <Plus className="size-4" />
                   </Button>
@@ -672,6 +680,7 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                     value={templateTitle}
                     onChange={(event) => setTemplateTitle(event.target.value)}
                     placeholder="Save as template"
+                    aria-label="Template name"
                     className="min-w-0 flex-1 rounded-md border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm outline-none"
                     disabled={!selectedSpaceId}
                   />
@@ -679,6 +688,7 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                     size="icon"
                     onClick={handleTemplateCreate}
                     disabled={!selectedSpaceId || createTemplate.isPending}
+                    aria-label="Save as template"
                   >
                     <Plus className="size-4" />
                   </Button>
@@ -790,10 +800,16 @@ export function DocumentConsole({ workspaceId }: { readonly workspaceId: string 
                     value={commentValue}
                     onChange={(event) => setCommentValue(event.target.value)}
                     placeholder="Add a comment"
+                    aria-label="Comment text"
                     className="min-w-0 flex-1 rounded-md border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm outline-none"
                     disabled={!selectedPageId}
                   />
-                  <Button size="icon" onClick={handleComment} disabled={!selectedPageId}>
+                  <Button
+                    size="icon"
+                    onClick={handleComment}
+                    disabled={!selectedPageId}
+                    aria-label="Add comment"
+                  >
                     <Plus className="size-4" />
                   </Button>
                 </div>

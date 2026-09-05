@@ -28,21 +28,25 @@ export function NotificationList({ items, compact = false }: NotificationListPro
             !notification.isRead && 'border-emerald-400/30 bg-emerald-400/[0.06]',
           )}
         >
-          <div className="flex gap-3">
-            <span
-              className={cn(
-                'mt-1 size-2 shrink-0 rounded-full bg-slate-700',
-                !notification.isRead && 'bg-emerald-300',
-              )}
-            />
-            <Link href={notificationHref(notification)} className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{notification.title}</p>
-              <p className={cn('mt-1 text-sm text-slate-400', compact && 'line-clamp-2')}>
-                {notification.message}
-              </p>
-              <p className="mt-2 text-xs text-slate-500">{relativeTime(notification.createdAt)}</p>
-            </Link>
-            <div className="flex shrink-0 gap-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+            <div className="flex min-w-0 flex-1 gap-3">
+              <span
+                className={cn(
+                  'mt-1 size-2 shrink-0 rounded-full bg-slate-700',
+                  !notification.isRead && 'bg-emerald-300',
+                )}
+              />
+              <Link href={notificationHref(notification)} className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{notification.title}</p>
+                <p className={cn('mt-1 text-sm text-slate-400', compact && 'line-clamp-2')}>
+                  {notification.message}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  {relativeTime(notification.createdAt)}
+                </p>
+              </Link>
+            </div>
+            <div className="flex shrink-0 justify-end gap-1 sm:justify-start">
               {!notification.isRead ? (
                 <Button
                   type="button"

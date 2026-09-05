@@ -101,6 +101,7 @@ function SidebarContent() {
           size="icon"
           className="lg:hidden"
           onClick={closeMobile}
+          aria-label="Close menu"
         >
           <X className="size-4" />
         </Button>
