@@ -19,6 +19,10 @@ import { TaskRepository } from '../../tasks/repositories/task.repository.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { ResourceRepository } from '../repositories/resource.repository.js';
 import type {
   CreateAllocationInput,
@@ -65,7 +69,7 @@ export class ResourceService {
   ): Promise<ResourceProfileSummary> {
     await this.requireManager(workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'resource_planning');
-    await this.requireWorkspaceMembership(workspaceId, targetUserId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, targetUserId);
     const profileInput = {
       workspaceId,
       userId: targetUserId,
@@ -114,7 +118,7 @@ export class ResourceService {
     workspaceId: Types.ObjectId,
     actorId: Types.ObjectId,
   ): Promise<ResourceProfileSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const profiles = await this.resources.listProfiles(workspaceId);
     return profiles.map((profile) => this.toProfileSummary(profile));
   }
@@ -124,7 +128,7 @@ export class ResourceService {
     actorId: Types.ObjectId,
     input: StartTimerInput,
   ): Promise<TimerSummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await this.ensureResourceTargets(workspaceId, input.projectId, input.taskId);
     const now = new Date();
     const timer = await this.resources.startTimer({
@@ -160,7 +164,7 @@ export class ResourceService {
     actorId: Types.ObjectId,
     input: HeartbeatTimerInput,
   ): Promise<TimerSummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const now = new Date();
     const timer = await this.resources.updateTimerHeartbeat(workspaceId, actorId, {
       lastHeartbeatAt: now,
@@ -174,7 +178,7 @@ export class ResourceService {
     workspaceId: Types.ObjectId,
     actorId: Types.ObjectId,
   ): Promise<TimerSummary | null> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const timer = await this.resources.findTimer(workspaceId, actorId);
     return timer ? this.toTimerSummary(timer) : null;
   }
@@ -184,7 +188,7 @@ export class ResourceService {
     actorId: Types.ObjectId,
     input: StopTimerInput,
   ): Promise<TimeEntrySummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const timer = await this.resources.stopTimer(workspaceId, actorId);
     if (!timer) throw new NotFoundError('Running timer not found');
     const endedAt = input.endedAt ? new Date(input.endedAt) : new Date();
@@ -224,12 +228,12 @@ export class ResourceService {
     actorId: Types.ObjectId,
     input: CreateTimeEntryInput,
   ): Promise<TimeEntrySummary> {
-    const role = await this.requireWorkspaceMembership(workspaceId, actorId);
+    const role = await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const targetUserId = input.userId ? this.toObjectId(input.userId) : actorId;
     if (!targetUserId.equals(actorId) && !managerRoles.has(role)) {
       throw new ForbiddenError('Resource manager access required');
     }
-    await this.requireWorkspaceMembership(workspaceId, targetUserId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, targetUserId);
     await this.ensureResourceTargets(workspaceId, input.projectId, input.taskId);
     const startedAt = new Date(input.startedAt);
     const endedAt = new Date(input.endedAt);
@@ -275,7 +279,7 @@ export class ResourceService {
       to?: Date;
     },
   ): Promise<TimeEntrySummary[]> {
-    const role = await this.requireWorkspaceMembership(workspaceId, actorId);
+    const role = await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const targetUserId = filters.userId ?? actorId;
     if (!targetUserId.equals(actorId) && !managerRoles.has(role)) {
       throw new ForbiddenError('Resource manager access required');
@@ -295,7 +299,7 @@ export class ResourceService {
     actorId: Types.ObjectId,
     input: { userId?: Types.ObjectId; from?: Date; to?: Date },
   ): Promise<TimesheetSummary> {
-    const role = await this.requireWorkspaceMembership(workspaceId, actorId);
+    const role = await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     const targetUserId = input.userId ?? actorId;
     if (!targetUserId.equals(actorId) && !managerRoles.has(role)) {
       throw new ForbiddenError('Resource manager access required');
@@ -338,7 +342,7 @@ export class ResourceService {
   ): Promise<ResourceAllocationSummary> {
     await this.requireManager(workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'resource_planning');
-    await this.requireWorkspaceMembership(workspaceId, this.toObjectId(input.userId));
+    await requireWorkspaceMembership(this.workspaces, workspaceId, this.toObjectId(input.userId));
     const project = await this.projects.findById(this.toObjectId(input.projectId));
     if (!project || !project.workspaceId.equals(workspaceId))
       throw new NotFoundError('Project not found');
@@ -384,7 +388,7 @@ export class ResourceService {
   ): Promise<ResourceAvailabilitySummary> {
     await this.requireManager(workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'resource_planning');
-    await this.requireWorkspaceMembership(workspaceId, this.toObjectId(input.userId));
+    await requireWorkspaceMembership(this.workspaces, workspaceId, this.toObjectId(input.userId));
     const availability = await this.resources.createAvailability({
       workspaceId,
       userId: this.toObjectId(input.userId),
@@ -410,7 +414,7 @@ export class ResourceService {
     actorId: Types.ObjectId,
     range: { from?: Date; to?: Date },
   ): Promise<ResourceWorkspaceSummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'resource_planning');
     const [profiles, allocations, availability, entries] = await Promise.all([
       this.resources.listProfiles(workspaceId),
@@ -545,24 +549,14 @@ export class ResourceService {
     }
   }
 
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active') {
-      throw new ForbiddenError('Workspace access denied');
-    }
-    return membership.role as WorkspaceRole;
-  }
-
   private async requireManager(workspaceId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!managerRoles.has(role)) throw new ForbiddenError('Resource manager access required');
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      managerRoles,
+      'Resource manager access required',
+    );
   }
 
   private buildHeatmap(

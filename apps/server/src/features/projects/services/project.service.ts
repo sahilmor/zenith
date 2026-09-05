@@ -3,6 +3,10 @@ import type { Types } from 'mongoose';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
@@ -26,7 +30,13 @@ export class ProjectService {
     userId: Types.ObjectId,
     input: CreateProjectInput,
   ): Promise<ProjectSummary> {
-    await this.requireWorkspaceRole(workspaceId, userId, projectWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      projectWriteRoles,
+      'Project manager access required',
+    );
     await entitlementService.requireWithinLimit(workspaceId, 'projects');
     const existing = await this.projects.findByWorkspaceAndKey(workspaceId, input.key);
     if (existing) throw new ConflictError('Project key already exists in this workspace');
@@ -81,7 +91,7 @@ export class ProjectService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<ProjectSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const projects = await this.projects.listByWorkspace(workspaceId);
     return projects.map((project) => this.toProjectSummary(project));
   }
@@ -212,7 +222,7 @@ export class ProjectService {
   ): Promise<ProjectDocument> {
     const project = await this.projects.findById(projectId);
     if (!project) throw new NotFoundError('Project not found');
-    await this.requireWorkspaceMembership(project.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, project.workspaceId, userId);
     return project;
   }
 
@@ -222,31 +232,14 @@ export class ProjectService {
   ): Promise<ProjectDocument> {
     const project = await this.projects.findById(projectId);
     if (!project) throw new NotFoundError('Project not found');
-    await this.requireWorkspaceRole(project.workspaceId, userId, projectWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      project.workspaceId,
+      userId,
+      projectWriteRoles,
+      'Project manager access required',
+    );
     return project;
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('Project manager access required');
   }
 
   private ensureActive(project: ProjectDocument): void {

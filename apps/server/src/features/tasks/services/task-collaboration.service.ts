@@ -10,6 +10,10 @@ import { Types } from 'mongoose';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
 import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
+import {
   CloudinaryStorageService,
   type StorageService,
 } from '../../../services/cloudinary.service.js';
@@ -408,7 +412,13 @@ export class TaskCollaborationService {
   ): Promise<TaskLabelSummary> {
     const label = await this.labels.findById(labelId);
     if (!label) throw new NotFoundError('Label not found');
-    await this.requireWorkspaceRole(label.workspaceId, userId, taskWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      label.workspaceId,
+      userId,
+      taskWriteRoles,
+      'Task collaboration access required',
+    );
     const update: { name?: string; color?: string } = {};
     if (input.name !== undefined) update.name = input.name;
     if (input.color !== undefined) update.color = input.color;
@@ -483,7 +493,7 @@ export class TaskCollaborationService {
   ): Promise<TaskDocument> {
     const task = await this.tasks.findById(taskId);
     if (!task) throw new NotFoundError('Task not found');
-    await this.requireWorkspaceMembership(task.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, task.workspaceId, userId);
     return task;
   }
 
@@ -493,7 +503,13 @@ export class TaskCollaborationService {
   ): Promise<TaskDocument> {
     const task = await this.requireTaskAccess(taskId, userId);
     if (task.archived) throw new ForbiddenError('Archived tasks cannot be modified');
-    await this.requireWorkspaceRole(task.workspaceId, userId, taskWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      task.workspaceId,
+      userId,
+      taskWriteRoles,
+      'Task collaboration access required',
+    );
     return task;
   }
 
@@ -508,29 +524,6 @@ export class TaskCollaborationService {
       throw new ForbiddenError('Only the comment author can change this comment');
     }
     return comment;
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('Task collaboration access required');
   }
 
   private async recordTaskActivity(

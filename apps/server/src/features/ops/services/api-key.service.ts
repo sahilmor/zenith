@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Types } from 'mongoose';
 import { env } from '../../../config/env.js';
 import { ForbiddenError, UnauthorizedError } from '../../../utils/app-error.js';
+import { requireWorkspaceRole } from '../../../utils/workspace-access.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { ApiKeyRepository } from '../repositories/ops.repository.js';
 import type { CreateApiKeyInput } from '../validation/ops.validation.js';
@@ -84,14 +85,13 @@ export class ApiKeyService {
   }
 
   private async requireAccess(workspaceId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (
-      !membership ||
-      membership.status !== 'active' ||
-      !apiKeyRoles.has(membership.role as 'owner' | 'admin')
-    ) {
-      throw new ForbiddenError('API key management requires workspace owner or admin access');
-    }
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      apiKeyRoles,
+      'API key management requires workspace owner or admin access',
+    );
   }
 }
 

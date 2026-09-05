@@ -15,7 +15,11 @@ import { TaskModel } from '../../tasks/models/task.model.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
 import { auditLogService } from '../../ops/services/audit-log.service.js';
-import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 import type { AutomationExecutionDocument } from '../models/automation-execution.model.js';
 import type { AutomationRuleDocument } from '../models/automation-rule.model.js';
@@ -48,7 +52,7 @@ export class AutomationService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<AutomationRuleSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.automations.list(workspaceId)).map((rule) => this.toRuleSummary(rule));
   }
 
@@ -57,7 +61,13 @@ export class AutomationService {
     input: AutomationRuleInput,
   ): Promise<AutomationRuleSummary> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceRole(workspaceId, userId, automationWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      automationWriteRoles,
+      'Automation manager access required',
+    );
     await entitlementService.requireFeature(workspaceId, 'automations');
     await entitlementService.requireWithinLimit(workspaceId, 'automations');
     const rule = await this.automations.create({
@@ -300,31 +310,14 @@ export class AutomationService {
   ): Promise<AutomationRuleDocument> {
     const rule = await this.automations.findById(ruleId);
     if (!rule) throw new NotFoundError('Automation rule not found');
-    await this.requireWorkspaceRole(rule.workspaceId, userId, automationWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      rule.workspaceId,
+      userId,
+      automationWriteRoles,
+      'Automation manager access required',
+    );
     return rule;
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('Automation manager access required');
   }
 
   private toRuleSummary(rule: AutomationRuleDocument): AutomationRuleSummary {

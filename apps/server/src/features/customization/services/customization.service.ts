@@ -18,6 +18,10 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 import { BoardRepository, ColumnRepository } from '../../boards/repositories/board.repository.js';
@@ -154,7 +158,7 @@ export class CustomizationService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<CustomFieldDefinitionSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.fields.list(workspaceId)).map((field) => this.toFieldSummary(field));
   }
 
@@ -196,7 +200,7 @@ export class CustomizationService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<TaskTypeSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.taskTypes.list(workspaceId)).map((taskType) =>
       this.toTaskTypeSummary(taskType),
     );
@@ -247,7 +251,7 @@ export class CustomizationService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<WorkflowSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.workflows.list(workspaceId)).map((workflow) =>
       this.toWorkflowSummary(workflow),
     );
@@ -391,7 +395,7 @@ export class CustomizationService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<TemplateSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     return (await this.templates.list(workspaceId)).map((template) =>
       this.toTemplateSummary(template),
     );
@@ -495,7 +499,13 @@ export class CustomizationService {
   ): Promise<TaskSummary> {
     const task = await this.tasks.findById(taskId);
     if (!task) throw new NotFoundError('Task not found');
-    await this.requireWorkspaceRole(task.workspaceId, userId, transitionRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      task.workspaceId,
+      userId,
+      transitionRoles,
+      'Insufficient workspace role',
+    );
     if (!task.workflowId || !task.workflowStateId)
       throw new BadRequestError('Task has no workflow');
     const workflow = await this.ensureWorkflow(task.workspaceId, task.workflowId);
@@ -796,25 +806,14 @@ export class CustomizationService {
       throw new BadRequestError('Invalid form column');
   }
 
-  private async requireWorkspaceMembership(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access required');
-    return membership;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: Set<WorkspaceRole>,
-  ) {
-    const membership = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(membership.role)) throw new ForbiddenError('Insufficient workspace role');
-    return membership;
-  }
-
   private async requireManageAccess(workspaceId: Types.ObjectId, userId: Types.ObjectId) {
-    return this.requireWorkspaceRole(workspaceId, userId, manageRoles);
+    return requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      manageRoles,
+      'Insufficient workspace role',
+    );
   }
 
   private emitConfigMutation(

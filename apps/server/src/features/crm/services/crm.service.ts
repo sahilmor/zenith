@@ -20,6 +20,7 @@ import { TaskRepository } from '../../tasks/repositories/task.repository.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { requireWorkspaceMembership } from '../../../utils/workspace-access.js';
 import type {
   CrmAccountDocument,
   CrmActivityDocument,
@@ -67,7 +68,7 @@ export class CrmService {
     await this.requireCrmWrite(workspaceId, actorId);
     await entitlementService.requireWithinLimit(workspaceId, 'crmAccounts');
     const ownerId = input.ownerId ? this.toObjectId(input.ownerId) : actorId;
-    await this.requireWorkspaceMembership(workspaceId, ownerId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, ownerId);
     if (input.domain) {
       const duplicate = await this.crm.findAccountByDomain(workspaceId, input.domain);
       if (duplicate) throw new ConflictError('An account with this domain already exists');
@@ -117,7 +118,7 @@ export class CrmService {
     actorId: Types.ObjectId,
     search?: string,
   ): Promise<CrmAccountSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     const accounts = await this.crm.listAccounts({ workspaceId, ...(search ? { search } : {}) });
     return accounts.map((account) => this.toAccountSummary(account));
@@ -131,7 +132,11 @@ export class CrmService {
     const account = await this.requireAccount(accountId, actorId, true);
     const update: Record<string, unknown> = { ...input };
     if (input.ownerId)
-      await this.requireWorkspaceMembership(account.workspaceId, this.toObjectId(input.ownerId));
+      await requireWorkspaceMembership(
+        this.workspaces,
+        account.workspaceId,
+        this.toObjectId(input.ownerId),
+      );
     if (input.onboardingProjectId)
       await this.ensureProject(account.workspaceId, this.toObjectId(input.onboardingProjectId));
     if (input.healthScore !== undefined)
@@ -162,7 +167,7 @@ export class CrmService {
     await this.requireCrmWrite(workspaceId, actorId);
     await entitlementService.requireWithinLimit(workspaceId, 'crmContacts');
     const ownerId = input.ownerId ? this.toObjectId(input.ownerId) : actorId;
-    await this.requireWorkspaceMembership(workspaceId, ownerId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, ownerId);
     if (input.accountId) await this.ensureAccount(workspaceId, this.toObjectId(input.accountId));
     const duplicate = await this.crm.findContactByEmail(workspaceId, input.email);
     if (duplicate) throw new ConflictError('A contact with this email already exists');
@@ -193,7 +198,7 @@ export class CrmService {
     actorId: Types.ObjectId,
     input: { accountId?: Types.ObjectId; search?: string },
   ): Promise<CrmContactSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     if (input.accountId) await this.ensureAccount(workspaceId, input.accountId);
     const contacts = await this.crm.listContacts({ workspaceId, ...input });
@@ -208,7 +213,7 @@ export class CrmService {
     await this.requireCrmWrite(workspaceId, actorId);
     await entitlementService.requireWithinLimit(workspaceId, 'crmLeads');
     const ownerId = input.ownerId ? this.toObjectId(input.ownerId) : actorId;
-    await this.requireWorkspaceMembership(workspaceId, ownerId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, ownerId);
     const lead = await this.crm.createLead({
       workspaceId,
       companyName: input.companyName,
@@ -237,7 +242,7 @@ export class CrmService {
     actorId: Types.ObjectId,
     input: { status?: string; search?: string },
   ): Promise<CrmLeadSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     const leads = await this.crm.listLeads({ workspaceId, ...input });
     return leads.map((lead) => this.toLeadSummary(lead));
@@ -337,7 +342,7 @@ export class CrmService {
     await this.requireCrmWrite(workspaceId, actorId);
     await entitlementService.requireWithinLimit(workspaceId, 'crmDeals');
     const ownerId = input.ownerId ? this.toObjectId(input.ownerId) : actorId;
-    await this.requireWorkspaceMembership(workspaceId, ownerId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, ownerId);
     await this.ensureAccount(workspaceId, this.toObjectId(input.accountId));
     if (input.contactId) await this.ensureContact(workspaceId, this.toObjectId(input.contactId));
     if (input.projectId) await this.ensureProject(workspaceId, this.toObjectId(input.projectId));
@@ -399,7 +404,7 @@ export class CrmService {
     actorId: Types.ObjectId,
     input: { accountId?: Types.ObjectId; stage?: string },
   ): Promise<CrmDealSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     if (input.accountId) await this.ensureAccount(workspaceId, input.accountId);
     const deals = await this.crm.listDeals({ workspaceId, ...input });
@@ -411,10 +416,10 @@ export class CrmService {
     actorId: Types.ObjectId,
     input: CreateCrmActivityInput,
   ): Promise<CrmActivitySummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     const ownerId = input.ownerId ? this.toObjectId(input.ownerId) : actorId;
-    await this.requireWorkspaceMembership(workspaceId, ownerId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, ownerId);
     await this.ensureTargets(workspaceId, input);
     const activity = await this.crm.createActivity({
       workspaceId,
@@ -445,7 +450,7 @@ export class CrmService {
     workspaceId: Types.ObjectId,
     actorId: Types.ObjectId,
   ): Promise<CrmDashboardSummary> {
-    await this.requireWorkspaceMembership(workspaceId, actorId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     const [accounts, leads, deals, activities] = await Promise.all([
       this.crm.listAccounts({ workspaceId }),
@@ -617,7 +622,7 @@ export class CrmService {
     const account = await this.crm.findAccount(accountId);
     if (!account || account.archived) throw new NotFoundError('Account not found');
     if (write) await this.requireCrmWrite(account.workspaceId, actorId);
-    else await this.requireWorkspaceMembership(account.workspaceId, actorId);
+    else await requireWorkspaceMembership(this.workspaces, account.workspaceId, actorId);
     return account;
   }
 
@@ -629,7 +634,7 @@ export class CrmService {
     const lead = await this.crm.findLead(leadId);
     if (!lead || lead.archived) throw new NotFoundError('Lead not found');
     if (write) await this.requireCrmWrite(lead.workspaceId, actorId);
-    else await this.requireWorkspaceMembership(lead.workspaceId, actorId);
+    else await requireWorkspaceMembership(this.workspaces, lead.workspaceId, actorId);
     return lead;
   }
 
@@ -641,7 +646,7 @@ export class CrmService {
     const deal = await this.crm.findDeal(dealId);
     if (!deal || deal.archived) throw new NotFoundError('Deal not found');
     if (write) await this.requireCrmWrite(deal.workspaceId, actorId);
-    else await this.requireWorkspaceMembership(deal.workspaceId, actorId);
+    else await requireWorkspaceMembership(this.workspaces, deal.workspaceId, actorId);
     return deal;
   }
 
@@ -649,23 +654,9 @@ export class CrmService {
     workspaceId: Types.ObjectId,
     actorId: Types.ObjectId,
   ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, actorId);
+    const role = await requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
     await entitlementService.requireFeature(workspaceId, 'crm');
     if (!crmWriteRoles.has(role)) throw new ForbiddenError('CRM manager access required');
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
   }
 
   private async record(

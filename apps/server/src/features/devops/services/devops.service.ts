@@ -24,7 +24,11 @@ import { auditLogService } from '../../ops/services/audit-log.service.js';
 import { ProjectRepository } from '../../projects/repositories/project.repository.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
-import { ConflictError, ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { ConflictError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import type {
   DevOpsBranchDocument,
   DevOpsCommitDocument,
@@ -307,7 +311,8 @@ export class DevOpsService {
     const repository = await this.requireRepository(repositoryId, actorId, true);
     await entitlementService.requireWithinLimit(repository.workspaceId, 'devOpsDeployments');
     if (input.approvedBy)
-      await this.requireWorkspaceMembership(
+      await requireWorkspaceMembership(
+        this.workspaces,
         repository.workspaceId,
         this.toObjectId(input.approvedBy),
       );
@@ -468,30 +473,20 @@ export class DevOpsService {
     actorId: Types.ObjectId,
   ): Promise<WorkspaceRole> {
     await entitlementService.requireFeature(workspaceId, 'devops');
-    return this.requireWorkspaceMembership(workspaceId, actorId);
+    return requireWorkspaceMembership(this.workspaces, workspaceId, actorId);
   }
 
   private async requireDevOpsWrite(
     workspaceId: Types.ObjectId,
     actorId: Types.ObjectId,
   ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, actorId);
-    if (!devOpsWriteRoles.has(role))
-      throw new ForbiddenError('Engineering manager access required');
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      actorId,
+      devOpsWriteRoles,
+      'Engineering manager access required',
+    );
   }
 
   private async ensureProject(

@@ -17,6 +17,10 @@ import { searchService } from '../../search/services/search.service.js';
 import { TaskService } from '../../tasks/services/task.service.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 import type { AiConversationDocument } from '../models/ai-conversation.model.js';
 import type { PromptDocument } from '../models/prompt.model.js';
@@ -47,14 +51,14 @@ export class AiService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<AiConversationSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const conversations = await this.conversations.list(workspaceId, userId);
     return conversations.map((conversation) => this.toConversationSummary(conversation));
   }
 
   public async chat(userId: Types.ObjectId, input: ChatInput): Promise<AiConversationSummary> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await entitlementService.requireFeature(workspaceId, 'ai');
     await entitlementService.requireWithinLimit(workspaceId, 'aiRequests');
     await this.validateReferences(workspaceId, userId, input.references);
@@ -107,7 +111,7 @@ export class AiService {
     input: ChatInput,
   ): Promise<AsyncGenerator<string>> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await entitlementService.requireFeature(workspaceId, 'ai');
     await entitlementService.requireWithinLimit(workspaceId, 'aiRequests');
     await this.validateReferences(workspaceId, userId, input.references);
@@ -129,7 +133,7 @@ export class AiService {
     if (!conversation) throw new NotFoundError('Conversation not found');
     if (conversation.userId.toString() !== userId.toString())
       throw new ForbiddenError('Conversation access denied');
-    await this.requireWorkspaceMembership(conversation.workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, conversation.workspaceId, userId);
     const updated = await this.conversations.update(conversationId, input);
     if (!updated) throw new NotFoundError('Conversation not found');
     return this.toConversationSummary(updated);
@@ -137,7 +141,7 @@ export class AiService {
 
   public async runAction(userId: Types.ObjectId, input: AiActionInput): Promise<AiActionResult> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await entitlementService.requireFeature(workspaceId, 'ai');
     await entitlementService.requireWithinLimit(workspaceId, 'aiRequests');
     const references = await this.referencesForInput(input);
@@ -162,7 +166,7 @@ export class AiService {
 
   public async search(userId: Types.ObjectId, input: AiSearchInput): Promise<AiSearchResult> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     await entitlementService.requireFeature(workspaceId, 'advanced_search');
     const filters = this.parseSearch(input.query);
     const taskList = await this.tasks.listAdvancedTasks(userId, {
@@ -200,14 +204,20 @@ export class AiService {
     userId: Types.ObjectId,
     projectId?: Types.ObjectId,
   ): Promise<PromptSummary[]> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const prompts = await this.prompts.list(workspaceId, projectId);
     return prompts.map((prompt) => this.toPromptSummary(prompt));
   }
 
   public async createPrompt(userId: Types.ObjectId, input: PromptInput): Promise<PromptSummary> {
     const workspaceId = new Types.ObjectId(input.workspaceId);
-    await this.requireWorkspaceRole(workspaceId, userId, promptWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      promptWriteRoles,
+      'AI administration access required',
+    );
     const prompt = await this.prompts.create({
       workspaceId,
       projectId: input.projectId ? new Types.ObjectId(input.projectId) : null,
@@ -227,7 +237,13 @@ export class AiService {
   ): Promise<PromptSummary> {
     const prompt = await this.prompts.findById(promptId);
     if (!prompt) throw new NotFoundError('Prompt not found');
-    await this.requireWorkspaceRole(prompt.workspaceId, userId, promptWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      prompt.workspaceId,
+      userId,
+      promptWriteRoles,
+      'AI administration access required',
+    );
     const update = {
       ...input,
       ...(input.projectId !== undefined
@@ -243,7 +259,13 @@ export class AiService {
   public async deletePrompt(promptId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
     const prompt = await this.prompts.findById(promptId);
     if (!prompt) throw new NotFoundError('Prompt not found');
-    await this.requireWorkspaceRole(prompt.workspaceId, userId, promptWriteRoles);
+    await requireWorkspaceRole(
+      this.workspaces,
+      prompt.workspaceId,
+      userId,
+      promptWriteRoles,
+      'AI administration access required',
+    );
     await this.prompts.delete(promptId);
   }
 
@@ -261,29 +283,6 @@ export class AiService {
       throw new ForbiddenError('Conversation access denied');
     }
     return conversation;
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<WorkspaceRole> {
-    const [workspace, membership] = await Promise.all([
-      this.workspaces.findWorkspaceById(workspaceId),
-      this.workspaces.findMembership(workspaceId, userId),
-    ]);
-    if (!workspace || workspace.archived) throw new NotFoundError('Workspace not found');
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-    return membership.role as WorkspaceRole;
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: ReadonlySet<WorkspaceRole>,
-  ): Promise<void> {
-    const role = await this.requireWorkspaceMembership(workspaceId, userId);
-    if (!roles.has(role)) throw new ForbiddenError('AI administration access required');
   }
 
   private async validateReferences(

@@ -23,6 +23,10 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../../utils/app-error.js';
+import {
+  requireWorkspaceMembership,
+  requireWorkspaceRole,
+} from '../../../utils/workspace-access.js';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import type { ActivityEventName } from '../../activity/models/activity-event.model.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
@@ -100,7 +104,7 @@ export class DocumentOperationsService {
     const startedAt = Date.now();
     try {
       await this.requireDocumentFlag(workspaceId, userId, 'documents.offline');
-      await this.requireWorkspaceMembership(workspaceId, userId);
+      await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
       const applied: DocumentSyncOperationSummary[] = [];
       const conflicts: DocumentSyncOperationSummary[] = [];
       const failed: DocumentSyncOperationSummary[] = [];
@@ -163,7 +167,7 @@ export class DocumentOperationsService {
     const startedAt = Date.now();
     try {
       await this.requireDocumentFlag(workspaceId, userId, 'documents.imports');
-      await this.requireWorkspaceMembership(workspaceId, userId);
+      await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
       await entitlementService.requireFeature(workspaceId, 'documents');
       if (!supportedImportFormats.has(input.format)) {
         throw new BadRequestError(
@@ -316,7 +320,7 @@ export class DocumentOperationsService {
     const startedAt = Date.now();
     try {
       await this.requireDocumentFlag(workspaceId, userId, 'documents.bulk_operations');
-      await this.requireWorkspaceMembership(workspaceId, userId);
+      await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
       const results: DocumentBulkOperationSummary['results'] = [];
       for (const pageId of input.pageIds) {
         try {
@@ -391,7 +395,7 @@ export class DocumentOperationsService {
     try {
       if (!file) throw new BadRequestError('Media file is required');
       await this.requireDocumentFlag(workspaceId, userId, 'documents.media');
-      await this.requireWorkspaceMembership(workspaceId, userId);
+      await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
       await entitlementService.requireWithinLimit(workspaceId, 'storageBytes', file.size);
       if (pageId) await documentService.getPage(toObjectId(pageId), userId);
       const upload = await this.storage.uploadBuffer(
@@ -458,7 +462,7 @@ export class DocumentOperationsService {
     total: number;
     hasMore: boolean;
   }> {
-    await this.requireWorkspaceMembership(workspaceId, userId);
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
     const query: {
       workspaceId: Types.ObjectId;
       search?: string;
@@ -492,7 +496,7 @@ export class DocumentOperationsService {
     const asset = await this.operations.findMediaAsset(mediaId);
     if (!asset) throw new NotFoundError('Media asset not found');
     try {
-      await this.requireWorkspaceRole(asset.workspaceId, userId, writeRoles);
+      await requireWorkspaceRole(this.workspaces, asset.workspaceId, userId, writeRoles);
       const updated = await this.operations.updateMediaAsset(mediaId, {
         ...(input.fileName !== undefined ? { fileName: input.fileName } : {}),
         ...(input.metadata !== undefined
@@ -538,7 +542,7 @@ export class DocumentOperationsService {
     const asset = await this.operations.findMediaAsset(mediaId);
     if (!asset) throw new NotFoundError('Media asset not found');
     try {
-      await this.requireWorkspaceRole(asset.workspaceId, userId, writeRoles);
+      await requireWorkspaceRole(this.workspaces, asset.workspaceId, userId, writeRoles);
       if (asset.usageCount > 0) {
         throw new ConflictError('Media is still referenced by documents');
       }
@@ -584,7 +588,7 @@ export class DocumentOperationsService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<DocumentRetentionPolicySummary> {
-    await this.requireWorkspaceRole(workspaceId, userId, writeRoles);
+    await requireWorkspaceRole(this.workspaces, workspaceId, userId, writeRoles);
     return this.toRetention(await this.operations.ensureRetentionPolicy(workspaceId));
   }
 
@@ -596,7 +600,7 @@ export class DocumentOperationsService {
   ): Promise<DocumentRetentionPolicySummary> {
     const startedAt = Date.now();
     try {
-      await this.requireWorkspaceRole(workspaceId, userId, writeRoles);
+      await requireWorkspaceRole(this.workspaces, workspaceId, userId, writeRoles);
       const update: Record<string, unknown> = { updatedBy: userId };
       if (input.draftRetentionDays !== undefined)
         update.draftRetentionDays = input.draftRetentionDays;
@@ -1079,26 +1083,6 @@ export class DocumentOperationsService {
 
   private escape(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  private async requireWorkspaceMembership(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-  ): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active')
-      throw new ForbiddenError('Workspace access denied');
-  }
-
-  private async requireWorkspaceRole(
-    workspaceId: Types.ObjectId,
-    userId: Types.ObjectId,
-    roles: Set<WorkspaceRole>,
-  ): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (!membership || membership.status !== 'active' || !roles.has(membership.role)) {
-      throw new ForbiddenError('Workspace access denied');
-    }
   }
 
   private async requireDocumentFlag(

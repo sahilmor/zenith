@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import { Types } from 'mongoose';
 import { env } from '../../../config/env.js';
-import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { NotFoundError } from '../../../utils/app-error.js';
+import { requireWorkspaceRole } from '../../../utils/workspace-access.js';
 import { logger } from '../../../utils/logger.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { WebhookRepository } from '../repositories/ops.repository.js';
@@ -130,14 +131,13 @@ export class WebhookService {
     workspaceId: Types.ObjectId,
     userId: Types.ObjectId,
   ): Promise<void> {
-    const membership = await this.workspaces.findMembership(workspaceId, userId);
-    if (
-      !membership ||
-      membership.status !== 'active' ||
-      !webhookRoles.has(membership.role as 'owner' | 'admin')
-    ) {
-      throw new ForbiddenError('Webhook management requires workspace owner or admin access');
-    }
+    await requireWorkspaceRole(
+      this.workspaces,
+      workspaceId,
+      userId,
+      webhookRoles,
+      'Webhook management requires workspace owner or admin access',
+    );
   }
 }
 
