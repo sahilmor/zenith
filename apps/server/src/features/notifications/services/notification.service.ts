@@ -5,8 +5,12 @@ import type {
   NotificationType,
 } from '@pm/types';
 import { Types } from 'mongoose';
+import { env } from '../../../config/env.js';
+import { EmailService, type EmailSender } from '../../../services/email.service.js';
 import { ForbiddenError, NotFoundError } from '../../../utils/app-error.js';
+import { logger } from '../../../utils/logger.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
+import { UserModel } from '../../users/models/user.model.js';
 import type { NotificationDocument } from '../models/notification.model.js';
 import type { NotificationPreferenceDocument } from '../models/notification-preference.model.js';
 import {
@@ -36,35 +40,50 @@ export class NotificationService {
   public constructor(
     private readonly notifications = new NotificationRepository(),
     private readonly preferences = new NotificationPreferenceRepository(),
+    private readonly email: EmailSender = new EmailService(),
   ) {}
 
   public async create(input: CreateNotificationInput): Promise<NotificationSummary | null> {
     if (input.actorId?.equals(input.userId)) return null;
     const preference = await this.preferences.getOrCreate(input.userId);
-    if (!this.canSend(preference, input.type)) return null;
+    if (!this.categoryEnabled(preference, input.type)) return null;
 
     const content = createNotificationContent(input);
-    const notification = await this.notifications.create({
-      userId: input.userId,
-      workspaceId: input.workspaceId ?? null,
-      projectId: input.projectId ?? null,
-      taskId: input.taskId ?? null,
-      actorId: input.actorId ?? null,
-      type: input.type,
-      title: content.title,
-      message: content.message,
-      metadata: input.metadata ?? {},
-    });
-    const summary = this.toSummary(notification);
-    realtimeService.emitNotification({
-      workspaceId: summary.workspaceId ?? summary.userId,
-      recipientId: summary.userId,
-      actorId: summary.actorId ?? summary.userId,
-      type: this.toRealtimeType(summary.type),
-      ...(summary.taskId ? { taskId: summary.taskId } : {}),
-      message: summary.message,
-    });
-    await this.emitUnreadCount(input.userId);
+    let summary: NotificationSummary | null = null;
+
+    if (preference.inApp) {
+      const notification = await this.notifications.create({
+        userId: input.userId,
+        workspaceId: input.workspaceId ?? null,
+        projectId: input.projectId ?? null,
+        taskId: input.taskId ?? null,
+        actorId: input.actorId ?? null,
+        type: input.type,
+        title: content.title,
+        message: content.message,
+        metadata: input.metadata ?? {},
+      });
+      summary = this.toSummary(notification);
+      realtimeService.emitNotification({
+        workspaceId: summary.workspaceId ?? summary.userId,
+        recipientId: summary.userId,
+        actorId: summary.actorId ?? summary.userId,
+        type: this.toRealtimeType(summary.type),
+        ...(summary.taskId ? { taskId: summary.taskId } : {}),
+        message: summary.message,
+      });
+      await this.emitUnreadCount(input.userId);
+    }
+
+    if (preference.email) {
+      await this.sendEmailNotification(input.userId, content).catch((error: unknown) => {
+        logger.warn('Notification email failed to send', {
+          userId: input.userId.toString(),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
     return summary;
   }
 
@@ -164,10 +183,28 @@ export class NotificationService {
     return this.toPreferenceSummary(await this.preferences.update(userId, { ...input }));
   }
 
-  private canSend(preference: NotificationPreferenceDocument, type: NotificationType): boolean {
-    if (!preference.inApp) return false;
+  private categoryEnabled(
+    preference: NotificationPreferenceDocument,
+    type: NotificationType,
+  ): boolean {
     const category = notificationCategoryForType(type);
     return category === 'inApp' ? true : Boolean(preference[category]);
+  }
+
+  private async sendEmailNotification(
+    userId: Types.ObjectId,
+    content: { title: string; message: string },
+  ): Promise<void> {
+    if (!this.email.isConfigured()) return;
+    const user = await UserModel.findById(userId).exec();
+    if (!user) return;
+    await this.email.sendNotification({
+      to: user.email,
+      name: user.name,
+      title: content.title,
+      message: content.message,
+      actionUrl: `${env.APP_URL}/dashboard/notifications`,
+    });
   }
 
   private async emitUnreadCount(userId: Types.ObjectId): Promise<void> {

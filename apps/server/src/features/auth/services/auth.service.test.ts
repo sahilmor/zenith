@@ -25,6 +25,10 @@ class UnconfiguredEmailService implements EmailSender {
     await Promise.resolve();
   }
 
+  public async sendNotification(): Promise<void> {
+    await Promise.resolve();
+  }
+
   public isConfigured(): boolean {
     return false;
   }
