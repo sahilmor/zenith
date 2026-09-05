@@ -34,6 +34,16 @@ export interface CreateCrmLeadInput {
   readonly tags?: string[];
 }
 
+export interface CreateCrmContactInput {
+  readonly accountId?: string | null;
+  readonly firstName: string;
+  readonly lastName?: string | null;
+  readonly email: string;
+  readonly phone?: string | null;
+  readonly title?: string | null;
+  readonly tags?: string[];
+}
+
 export interface CreateCrmDealInput {
   readonly accountId: string;
   readonly contactId?: string | null;
@@ -142,6 +152,31 @@ export function useCreateCrmLead(workspaceId: string | null | undefined) {
         if (!current) return [lead];
         if (current.some((item) => item.id === lead.id)) return current;
         return [lead, ...current];
+      });
+      queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
+    },
+  });
+}
+
+export function useCreateCrmContact(workspaceId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['crm-contact-create'],
+    meta: {
+      loadingTitle: 'Creating contact',
+      successTitle: 'Contact created',
+      errorTitle: 'Contact creation failed',
+    },
+    mutationFn: (input: CreateCrmContactInput) =>
+      apiRequest<CrmContactSummary>(`/api/workspaces/${workspaceId}/crm/contacts`, {
+        method: 'POST',
+        body: { tags: [], customFields: [], ...input },
+      }),
+    onSuccess: (contact) => {
+      queryClient.setQueryData<CrmContactSummary[]>(crmKeys.contacts(workspaceId), (current) => {
+        if (!current) return [contact];
+        if (current.some((item) => item.id === contact.id)) return current;
+        return [contact, ...current];
       });
       queryClient.invalidateQueries({ queryKey: crmKeys.dashboard(workspaceId) });
     },
