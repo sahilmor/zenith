@@ -48,6 +48,7 @@ const taskSchema = new Schema(
     labels: [{ type: String, trim: true, maxlength: 40 }],
     labelIds: [{ type: Schema.Types.ObjectId, ref: 'TaskLabel' }],
     dueDate: { type: Date, default: null },
+    dueDateAutomationRunAt: { type: Date, default: null },
     startDate: { type: Date, default: null },
     estimate: { type: Number, default: null, min: 0 },
     coverImage: { type: String, default: null, trim: true },
@@ -62,6 +63,7 @@ const taskSchema = new Schema(
 );
 
 taskSchema.index({ columnId: 1, order: 1 });
+taskSchema.index({ dueDate: 1, dueDateAutomationRunAt: 1, archived: 1 });
 taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.stringValue': 1 });
 taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.numberValue': 1 });
 taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.dateValue': 1 });

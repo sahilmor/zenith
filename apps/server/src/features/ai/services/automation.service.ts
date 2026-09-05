@@ -7,6 +7,7 @@ import type {
   WorkspaceRole,
 } from '@pm/types';
 import { Types } from 'mongoose';
+import { env } from '../../../config/env.js';
 import { ActivityService } from '../../activity/services/activity.service.js';
 import { BoardModel } from '../../boards/models/board.model.js';
 import { ColumnModel } from '../../boards/models/column.model.js';
@@ -15,6 +16,8 @@ import { TaskModel } from '../../tasks/models/task.model.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
 import { auditLogService } from '../../ops/services/audit-log.service.js';
+import { webhookService, type WebhookService } from '../../ops/services/webhook.service.js';
+import { EmailService, type EmailSender } from '../../../services/email.service.js';
 import { NotFoundError } from '../../../utils/app-error.js';
 import {
   requireWorkspaceMembership,
@@ -40,12 +43,19 @@ export interface AutomationEventPayload {
   readonly fields: Record<string, string | string[] | boolean | number | null>;
 }
 
+const dueDateSweepIntervalMs = 60_000;
+
 export class AutomationService {
+  private sweeping = false;
+  private timer: NodeJS.Timeout | null = null;
+
   public constructor(
     private readonly automations = new AutomationRepository(),
     private readonly workspaces = new WorkspaceRepository(),
     private readonly activity = new ActivityService(),
     private readonly providers = new AiProviderRegistry(),
+    private readonly webhooks: Pick<WebhookService, 'emit'> = webhookService,
+    private readonly email: EmailSender = new EmailService(),
   ) {}
 
   public async listRules(
@@ -126,6 +136,56 @@ export class AutomationService {
     return executions.map((execution) => this.toExecutionSummary(execution));
   }
 
+  public start(): void {
+    if (this.timer) return;
+    this.timer = setInterval(() => void this.sweepDueDates(), dueDateSweepIntervalMs);
+  }
+
+  public stop(): void {
+    if (!this.timer) return;
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  public async sweepDueDates(): Promise<number> {
+    if (this.sweeping) return 0;
+    this.sweeping = true;
+    try {
+      const now = new Date();
+      const dueTasks = await TaskModel.find({
+        dueDate: { $lte: now },
+        dueDateAutomationRunAt: null,
+        archived: false,
+      })
+        .limit(200)
+        .exec();
+      let fired = 0;
+      for (const task of dueTasks) {
+        const claim = await TaskModel.updateOne(
+          { _id: task._id, dueDateAutomationRunAt: null },
+          { dueDateAutomationRunAt: now },
+        ).exec();
+        if (claim.modifiedCount === 0) continue;
+        fired += 1;
+        await this.runForEvent({
+          workspaceId: task.workspaceId,
+          actorId: task.reporterId,
+          trigger: 'due_date_reached',
+          taskId: task._id,
+          fields: {
+            title: task.title,
+            status: task.status,
+            priority: task.priority,
+            dueDate: task.dueDate?.toISOString() ?? null,
+          },
+        });
+      }
+      return fired;
+    } finally {
+      this.sweeping = false;
+    }
+  }
+
   private async executeRule(
     rule: AutomationRuleDocument,
     payload: AutomationEventPayload,
@@ -191,7 +251,34 @@ export class AutomationService {
     rule: AutomationRuleDocument,
     payload: AutomationEventPayload,
   ): Promise<void> {
-    if (action.type === 'webhook' || action.type === 'email') return;
+    if (action.type === 'webhook') {
+      const event = this.param(action.params, 'event') ?? `automation.${rule.trigger}`;
+      await this.webhooks.emit({
+        workspaceId: payload.workspaceId,
+        event,
+        payload: {
+          ruleId: rule.id,
+          ruleName: rule.name,
+          trigger: payload.trigger,
+          taskId: payload.taskId?.toString() ?? null,
+          fields: payload.fields,
+        },
+      });
+      return;
+    }
+    if (action.type === 'email') {
+      const to = this.param(action.params, 'to');
+      if (!to) throw new Error('email requires a "to" address');
+      if (!this.email.isConfigured()) return;
+      await this.email.sendNotification({
+        to,
+        name: '',
+        title: this.param(action.params, 'subject') ?? rule.name,
+        message: this.param(action.params, 'message') ?? `Automation "${rule.name}" ran`,
+        actionUrl: `${env.APP_URL}/dashboard/automations`,
+      });
+      return;
+    }
     const taskId = this.param(action.params, 'taskId') ?? payload.taskId?.toString();
     if (
       ['assign_user', 'move_task', 'change_status', 'change_priority', 'create_comment'].includes(
