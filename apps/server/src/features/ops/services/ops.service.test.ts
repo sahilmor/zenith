@@ -8,6 +8,7 @@ import { UserModel, type UserDocument } from '../../users/models/user.model.js';
 import { WorkspaceService } from '../../workspaces/services/workspace.service.js';
 import { subscriptionService } from '../../billing/services/subscription.service.js';
 import { auditLogService } from './audit-log.service.js';
+import { AuditLogModel } from '../models/audit-log.model.js';
 
 const tokens = new TokenService();
 
@@ -160,5 +161,48 @@ describe('Operations module', () => {
       .set('Authorization', bearer(member))
       .send({ type: 'report.generate', payload: {} })
       .expect(403);
+  });
+
+  it('sweeps expired audit logs based on retention and exports matching logs as csv', async () => {
+    const app = createApp();
+    const owner = await createUser('retention-owner@example.com', 'Retention Owner', 'admin');
+    const workspace = await new WorkspaceService().createWorkspace(owner._id, {
+      name: 'Retention Workspace',
+      visibility: 'private',
+    });
+
+    const stale = await auditLogService.record({
+      actorId: owner._id,
+      workspaceId: new mongoose.Types.ObjectId(workspace.id),
+      targetType: 'workspace',
+      action: 'workspace.stale_event',
+    });
+    // Mongoose's timestamps plugin strips createdAt from update() calls, so the
+    // raw driver collection is used here to backdate the record for the test.
+    await AuditLogModel.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(stale.id) },
+      { $set: { createdAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000) } },
+    );
+
+    await auditLogService.record({
+      actorId: owner._id,
+      workspaceId: new mongoose.Types.ObjectId(workspace.id),
+      targetType: 'workspace',
+      action: 'workspace.fresh_event',
+    });
+
+    const deleted = await auditLogService.sweepRetention();
+    expect(deleted).toBe(1);
+
+    const remaining = await auditLogService.list({ workspaceId: workspace.id, page: 1, limit: 10 });
+    expect(remaining.items.map((log) => log.action)).toEqual(['workspace.fresh_event']);
+
+    const exported = await request(app)
+      .get(`/api/ops/audit-logs/export?workspaceId=${workspace.id}`)
+      .set('Authorization', bearer(owner))
+      .expect(200);
+    expect(exported.headers['content-type']).toContain('text/csv');
+    expect(exported.text).toContain('workspace.fresh_event');
+    expect(exported.text).not.toContain('workspace.stale_event');
   });
 });

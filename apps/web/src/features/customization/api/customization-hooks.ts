@@ -60,6 +60,11 @@ export interface CreateTemplateInput {
   config?: Record<string, unknown>;
 }
 
+export interface ApplyTemplateResult {
+  templateType: TemplateSummary['templateType'];
+  entityId: string;
+}
+
 export const customizationKeys = {
   fields: (workspaceId: string | null | undefined) =>
     ['customization', workspaceId, 'fields'] as const,
@@ -194,6 +199,31 @@ export function useCreateTemplate(workspaceId: string | null | undefined) {
         method: 'POST',
         body: input,
       }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: customizationKeys.templates(workspaceId) }),
+  });
+}
+
+export function useApplyTemplate(workspaceId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['template-apply'],
+    meta: {
+      loadingTitle: 'Applying template',
+      successTitle: 'Template applied',
+      errorTitle: 'Template apply failed',
+    },
+    mutationFn: ({
+      templateId,
+      target,
+    }: {
+      templateId: string;
+      target?: Record<string, unknown>;
+    }) =>
+      apiRequest<ApplyTemplateResult>(
+        `/api/workspaces/${workspaceId}/templates/${templateId}/apply`,
+        { method: 'POST', body: { target: target ?? {} } },
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: customizationKeys.templates(workspaceId) }),
   });

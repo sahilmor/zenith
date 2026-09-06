@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { verifyToken } from '../../../middleware/auth.middleware.js';
 import { validate } from '../../../middleware/validate.middleware.js';
 import {
+  applyTemplate,
   createCustomField,
   createForm,
   createTaskType,
@@ -18,6 +19,7 @@ import {
   updateCustomField,
 } from '../controllers/customization.controller.js';
 import {
+  applyTemplateRouteSchema,
   createCustomFieldRouteSchema,
   createFormRouteSchema,
   createTaskTypeRouteSchema,
@@ -100,4 +102,9 @@ customizationRouter.post(
   '/workspaces/:workspaceId/templates',
   validate(createTemplateRouteSchema),
   createTemplate,
+);
+customizationRouter.post(
+  '/workspaces/:workspaceId/templates/:templateId/apply',
+  validate(applyTemplateRouteSchema),
+  applyTemplate,
 );

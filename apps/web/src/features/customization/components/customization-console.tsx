@@ -1,7 +1,8 @@
 'use client';
 
+import type { TemplateSummary } from '@pm/types';
 import { SlidersHorizontal } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { Skeleton } from '@/components/common/skeleton';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
+  useApplyTemplate,
   useCreateCustomField,
   useCreateTaskType,
   useCreateTemplate,
@@ -18,6 +20,16 @@ import {
   useTemplates,
   useWorkflows,
 } from '@/features/customization/api/customization-hooks';
+
+const templateConfigPlaceholders: Record<TemplateSummary['templateType'], string> = {
+  task: '{\n  "title": "Templated task title",\n  "priority": "medium"\n}',
+  project: '{\n  "name": "Templated Project",\n  "key": "TPL"\n}',
+  board: '{\n  "name": "Sprint board"\n}',
+  workflow:
+    '{\n  "name": "Templated workflow",\n  "initialStateId": "open",\n  "states": [{ "id": "open", "name": "Open", "category": "todo", "order": 0 }],\n  "transitions": []\n}',
+  form: '{\n  "name": "Intake form",\n  "slug": "intake-form",\n  "destinationProjectId": "...",\n  "destinationBoardId": "...",\n  "destinationColumnId": "...",\n  "fields": [{ "id": "title", "label": "Title", "fieldType": "title", "required": true, "order": 0 }]\n}',
+  workspace: '{}',
+};
 
 export function CustomizationConsole({ workspaceId }: { readonly workspaceId: string | null }) {
   const fields = useCustomFields(workspaceId);
@@ -90,6 +102,9 @@ export function CustomizationConsole({ workspaceId }: { readonly workspaceId: st
               id: template.id,
               title: template.name,
               meta: `${template.templateType} template · v${template.version}`,
+              action: workspaceId ? (
+                <ApplyTemplateAction workspaceId={workspaceId} template={template} />
+              ) : undefined,
             })),
           ]}
           empty="Forms and templates will appear here once configured."
@@ -240,14 +255,33 @@ function CreateTaskTypePanel({ workspaceId }: { readonly workspaceId: string | n
 function CreateTemplatePanel({ workspaceId }: { readonly workspaceId: string | null }) {
   const createTemplate = useCreateTemplate(workspaceId);
   const [name, setName] = useState('');
-  const [templateType, setTemplateType] = useState('task');
+  const [templateType, setTemplateType] = useState<TemplateSummary['templateType']>('task');
+  const [config, setConfig] = useState('');
+  const [configError, setConfigError] = useState<string | null>(null);
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    let parsedConfig: Record<string, unknown> = {};
+    if (config.trim().length > 0) {
+      try {
+        parsedConfig = JSON.parse(config) as Record<string, unknown>;
+      } catch {
+        setConfigError('Config must be valid JSON');
+        return;
+      }
+    }
+    setConfigError(null);
     createTemplate.mutate(
-      { name, templateType: templateType as never, config: {} },
-      { onSuccess: () => setName('') },
+      { name, templateType, config: parsedConfig },
+      {
+        onSuccess: () => {
+          setName('');
+          setConfig('');
+        },
+      },
     );
   }
+
   return (
     <Card className="rounded-lg p-5">
       <form className="space-y-4" onSubmit={submit}>
@@ -262,7 +296,9 @@ function CreateTemplatePanel({ workspaceId }: { readonly workspaceId: string | n
           <span className="text-sm font-medium text-slate-200">Template type</span>
           <select
             value={templateType}
-            onChange={(event) => setTemplateType(event.target.value)}
+            onChange={(event) =>
+              setTemplateType(event.target.value as TemplateSummary['templateType'])
+            }
             className="h-11 w-full rounded-xl border border-white/10 bg-slate-950 px-3 text-sm text-white"
           >
             <option value="task">Task</option>
@@ -272,9 +308,82 @@ function CreateTemplatePanel({ workspaceId }: { readonly workspaceId: string | n
             <option value="workflow">Workflow</option>
           </select>
         </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-slate-200">Config (JSON)</span>
+          <textarea
+            value={config}
+            onChange={(event) => setConfig(event.target.value)}
+            placeholder={templateConfigPlaceholders[templateType]}
+            rows={6}
+            className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 font-mono text-xs text-white placeholder:text-slate-600"
+          />
+          <span className="block text-xs text-slate-500">
+            Fields expected when the template is applied. Leave blank to fill in at apply time.
+          </span>
+          {configError ? <span className="block text-xs text-red-400">{configError}</span> : null}
+        </label>
         <Button disabled={!workspaceId || name.trim().length === 0}>Create template</Button>
       </form>
     </Card>
+  );
+}
+
+function ApplyTemplateAction({
+  workspaceId,
+  template,
+}: {
+  readonly workspaceId: string;
+  readonly template: TemplateSummary;
+}) {
+  const applyTemplate = useApplyTemplate(workspaceId);
+  const [open, setOpen] = useState(false);
+  const [targetId, setTargetId] = useState('');
+  const targetKey = template.templateType === 'task' ? 'columnId' : 'projectId';
+  const targetLabel = template.templateType === 'task' ? 'Column ID' : 'Project ID';
+  const needsTarget = template.templateType === 'task' || template.templateType === 'board';
+
+  if (template.templateType === 'workspace') return null;
+
+  if (!open) {
+    return (
+      <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)}>
+        Apply
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      {needsTarget ? (
+        <Input
+          label={targetLabel}
+          value={targetId}
+          onChange={(event) => setTargetId(event.target.value)}
+          className="w-48"
+        />
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={applyTemplate.isPending || (needsTarget && targetId.trim().length === 0)}
+          onClick={() =>
+            applyTemplate.mutate(
+              {
+                templateId: template.id,
+                target: needsTarget ? { [targetKey]: targetId.trim() } : {},
+              },
+              { onSuccess: () => setOpen(false) },
+            )
+          }
+        >
+          Confirm
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -301,7 +410,7 @@ function ResourceList({
   readonly title: string;
   readonly loading: boolean;
   readonly error: boolean;
-  readonly items: { id: string; title: string; meta: string }[];
+  readonly items: { id: string; title: string; meta: string; action?: ReactNode }[];
   readonly empty: string;
 }) {
   if (loading) return <Skeleton className="h-40 w-full rounded-lg" />;
@@ -323,9 +432,15 @@ function ResourceList({
       <h2 className="font-semibold text-white">{title}</h2>
       <div className="mt-4 divide-y divide-white/10">
         {items.map((item) => (
-          <div key={item.id} className="py-3 first:pt-0 last:pb-0">
-            <p className="font-medium text-white">{item.title}</p>
-            <p className="mt-1 text-xs text-slate-500">{item.meta}</p>
+          <div
+            key={item.id}
+            className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
+          >
+            <div>
+              <p className="font-medium text-white">{item.title}</p>
+              <p className="mt-1 text-xs text-slate-500">{item.meta}</p>
+            </div>
+            {item.action}
           </div>
         ))}
       </div>

@@ -44,7 +44,15 @@ import {
   TemplateRepository,
   WorkflowRepository,
 } from '../repositories/customization.repository.js';
+import { createProjectSchema } from '../../projects/validation/project.validation.js';
+import { createBoardSchema } from '../../boards/validation/board.validation.js';
+import { createTaskSchema } from '../../tasks/validation/task.validation.js';
+import {
+  createFormRouteSchema,
+  createWorkflowRouteSchema,
+} from '../validation/customization.validation.js';
 import type {
+  ApplyTemplateInput,
   CreateCustomFieldInput,
   CreateFormInput,
   CreateTaskTypeInput,
@@ -399,6 +407,68 @@ export class CustomizationService {
     return (await this.templates.list(workspaceId)).map((template) =>
       this.toTemplateSummary(template),
     );
+  }
+
+  public async applyTemplate(
+    workspaceId: Types.ObjectId,
+    templateId: Types.ObjectId,
+    userId: Types.ObjectId,
+    input: ApplyTemplateInput,
+  ): Promise<{ templateType: TemplateSummary['templateType']; entityId: string }> {
+    await requireWorkspaceMembership(this.workspaces, workspaceId, userId);
+    const template = await this.templates.findById(templateId);
+    if (!template || template.workspaceId.toString() !== workspaceId.toString()) {
+      throw new NotFoundError('Template not found');
+    }
+    if (!template.active || template.archived) throw new BadRequestError('Template is not active');
+    const merged = { ...(template.config as Record<string, unknown>), ...input.target };
+    let entityId: string;
+    switch (template.templateType) {
+      case 'task': {
+        const { columnId, ...body } = merged as Record<string, unknown> & { columnId?: string };
+        if (!columnId) throw new BadRequestError('Task templates require a target columnId');
+        const taskInput = createTaskSchema.shape.body.parse(body);
+        const { taskService } = await import('../../tasks/services/task.service.js');
+        entityId = (await taskService.createTask(toObjectId(columnId), userId, taskInput)).id;
+        break;
+      }
+      case 'project': {
+        const projectInput = createProjectSchema.shape.body.parse(merged);
+        const { ProjectService } = await import('../../projects/services/project.service.js');
+        entityId = (await new ProjectService().createProject(workspaceId, userId, projectInput)).id;
+        break;
+      }
+      case 'board': {
+        const { projectId, ...body } = merged as Record<string, unknown> & { projectId?: string };
+        if (!projectId) throw new BadRequestError('Board templates require a target projectId');
+        const boardInput = createBoardSchema.shape.body.parse(body);
+        const { BoardService } = await import('../../boards/services/board.service.js');
+        entityId = (await new BoardService().createBoard(toObjectId(projectId), userId, boardInput))
+          .id;
+        break;
+      }
+      case 'workflow': {
+        const workflowInput = createWorkflowRouteSchema.shape.body.parse(merged);
+        entityId = (await this.createWorkflow(workspaceId, userId, workflowInput)).id;
+        break;
+      }
+      case 'form': {
+        const formInput = createFormRouteSchema.shape.body.parse(merged);
+        entityId = (await this.createForm(workspaceId, userId, formInput)).id;
+        break;
+      }
+      default:
+        throw new BadRequestError(`${template.templateType} templates cannot be applied yet`);
+    }
+    await auditLogService.record({
+      actorId: userId,
+      workspaceId,
+      targetType: 'template',
+      targetId: template.id,
+      action: 'template.applied',
+      metadata: { templateType: template.templateType, entityId },
+    });
+    return { templateType: template.templateType as TemplateSummary['templateType'], entityId };
   }
 
   public async resolveTaskCustomization(input: {

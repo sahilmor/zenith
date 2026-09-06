@@ -8,6 +8,7 @@ import {
   deleteWebhook,
   enqueueJob,
   evaluateFeatureFlag,
+  exportAuditLogs,
   listAuditLogs,
   listFeatureFlags,
   listJobs,
@@ -22,6 +23,7 @@ import {
   createWebhookRouteSchema,
   enqueueJobRouteSchema,
   evaluateFeatureFlagRouteSchema,
+  exportAuditLogsRouteSchema,
   listAuditLogsRouteSchema,
   listJobsRouteSchema,
   upsertFeatureFlagRouteSchema,
@@ -38,6 +40,12 @@ opsRouter.get(
   requirePlatformAdmin,
   validate(listAuditLogsRouteSchema),
   listAuditLogs,
+);
+opsRouter.get(
+  '/audit-logs/export',
+  requirePlatformAdmin,
+  validate(exportAuditLogsRouteSchema),
+  exportAuditLogs,
 );
 opsRouter.get('/feature-flags', requirePlatformAdmin, listFeatureFlags);
 opsRouter.put(

@@ -182,3 +182,17 @@ export const createTemplate = asyncHandler(async (request, response) => {
     ),
   );
 });
+
+export const applyTemplate = asyncHandler(async (request, response) => {
+  sendSuccess(
+    response,
+    201,
+    'Template applied',
+    await customizationService.applyTemplate(
+      new Types.ObjectId(request.params.workspaceId),
+      new Types.ObjectId(request.params.templateId),
+      requireUserId(request),
+      request.body,
+    ),
+  );
+});
