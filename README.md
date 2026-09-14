@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/sahilmor/zenith/actions/workflows/ci.yml/badge.svg)](https://github.com/sahilmor/zenith/actions/workflows/ci.yml)
 
+**Live app:** [zenithtasks.space](https://zenithtasks.space)
+
+**Highlights:** 56K+ lines across a Turborepo monorepo · 132 automated tests · JWT access/refresh-token auth with server-side revocation · Stripe billing with verified webhook signatures · real-time collaboration via Socket.io · role-based multi-tenant workspaces enforced end to end.
+
 A production-oriented Project Management SaaS monorepo built with Turborepo, Next.js 15, React 19, Express, Socket.io, MongoDB, and shared TypeScript packages.
 
 ## Repository Structure
