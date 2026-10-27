@@ -4,25 +4,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   CalendarDays,
-  Building2,
   ChartNoAxesCombined,
-  Bot,
-  Code2,
   CreditCard,
   FileText,
   FolderKanban,
   GanttChart,
   LayoutDashboard,
   NotebookTabs,
-  Map,
-  Milestone,
-  SlidersHorizontal,
   Workflow,
   Settings,
   Table2,
-  Target,
   UserCheck,
-  UsersRound,
   Users,
   X,
 } from 'lucide-react';
@@ -38,9 +30,6 @@ const navGroups = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
       { label: 'Documents', href: '/dashboard/documents', icon: FileText },
-      { label: 'DevOps', href: '/dashboard/devops', icon: Code2 },
-      { label: 'CRM', href: '/dashboard/crm', icon: Building2 },
-      { label: 'Resources', href: '/dashboard/resources', icon: UsersRound },
     ],
   },
   {
@@ -53,29 +42,17 @@ const navGroups = [
     ],
   },
   {
-    label: 'Strategy',
-    items: [
-      { label: 'Goals', href: '/dashboard/goals', icon: Target },
-      { label: 'Initiatives', href: '/dashboard/initiatives', icon: Milestone },
-      { label: 'Portfolios', href: '/dashboard/portfolios', icon: NotebookTabs },
-      { label: 'Roadmap', href: '/dashboard/roadmap', icon: Map },
-    ],
-  },
-  {
     label: 'Intelligence',
     items: [
       { label: 'Insights', href: '/dashboard/insights', icon: ChartNoAxesCombined },
       { label: 'Analytics', href: '/dashboard/analytics', icon: ChartNoAxesCombined },
       { label: 'Reports', href: '/dashboard/reports', icon: NotebookTabs },
-      { label: 'AI Copilot', href: '/dashboard/ai', icon: Bot },
       { label: 'Automations', href: '/dashboard/automations', icon: Workflow },
-      { label: 'Prompts', href: '/dashboard/prompts', icon: NotebookTabs },
     ],
   },
   {
     label: 'Admin',
     items: [
-      { label: 'Customization', href: '/dashboard/customization', icon: SlidersHorizontal },
       { label: 'Members', href: '/dashboard/workspace/members', icon: Users },
       { label: 'Billing', href: '/dashboard/workspace/billing', icon: CreditCard },
       { label: 'Settings', href: '/dashboard/workspace/settings', icon: Settings },

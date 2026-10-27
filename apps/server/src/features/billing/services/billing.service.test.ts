@@ -10,7 +10,9 @@ import { UserModel, type UserDocument } from '../../users/models/user.model.js';
 import { WorkspaceService } from '../../workspaces/services/workspace.service.js';
 import { ProjectService } from '../../projects/services/project.service.js';
 import { BillingWebhookEventModel } from '../models/billing-webhook-event.model.js';
+import { PlanEntitlementModel, PlanModel } from '../models/plan.model.js';
 import { entitlementService } from './entitlement.service.js';
+import { pricingService } from './pricing.service.js';
 import { subscriptionService } from './subscription.service.js';
 
 const tokens = new TokenService();
@@ -58,6 +60,40 @@ describe('Billing module', () => {
 
     expect(billing.body.data.subscription.planCode).toBe('free');
     expect(billing.body.data.entitlements.limits.projects).toBe(3);
+  });
+
+  it('hides legacy entitlements for removed features and limits', async () => {
+    await pricingService.getPlan('free');
+    const plan = await PlanModel.findOne({ code: 'free' }).orFail();
+    await PlanEntitlementModel.create([
+      {
+        planId: plan._id,
+        featureKey: 'ai',
+        enabled: true,
+        limit: null,
+        metadata: { feature: 'true' },
+      },
+      {
+        planId: plan._id,
+        featureKey: 'crm',
+        enabled: true,
+        limit: null,
+        metadata: { feature: 'true' },
+      },
+      {
+        planId: plan._id,
+        featureKey: 'customFields',
+        enabled: true,
+        limit: 100,
+        metadata: {},
+      },
+    ]);
+
+    const result = await pricingService.getPlan('free');
+
+    expect(result.features).not.toContain('ai');
+    expect(result.features).not.toContain('crm');
+    expect(result.limits).not.toHaveProperty('customFields');
   });
 
   it('enforces project limits and allows creation after upgrade', async () => {

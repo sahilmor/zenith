@@ -49,10 +49,6 @@ export class TaskRepository {
     startDate?: Date | null;
     estimate?: number | null;
     coverImage?: string | null;
-    taskTypeId?: Types.ObjectId | null;
-    workflowId?: Types.ObjectId | null;
-    workflowStateId?: string | null;
-    customFields?: unknown[];
     createdBy: Types.ObjectId;
   }): Promise<TaskDocument> {
     return TaskModel.create(input) as Promise<TaskDocument>;

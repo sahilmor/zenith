@@ -4,7 +4,7 @@ This document describes the staging and production deployment path for the Zenit
 
 ## Target Topology
 
-Browser traffic terminates at Vercel for the Next.js frontend. The frontend calls the Railway-hosted Express API over HTTPS and connects to the same Railway service for Socket.io. The backend connects to MongoDB Atlas, Cloudinary, Resend or SMTP, and the configured AI provider.
+Browser traffic terminates at Vercel for the Next.js frontend. The frontend calls the Railway-hosted Express API over HTTPS and connects to the same Railway service for Socket.io. The backend connects to MongoDB Atlas, Cloudinary, and Resend or SMTP.
 
 REST APIs remain the source of truth. Socket.io is used only to synchronize authorized state changes across connected clients.
 
@@ -46,9 +46,6 @@ Never commit real secrets. Server-only variables must be configured only on Rail
 | `CLOUDINARY_API_SECRET`                                         | server secret     | Required for attachment deletion.                                                                     |
 | `RESEND_API_KEY`                                                | server secret     | Preferred staging/prod transactional email provider.                                                  |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | server secret     | SMTP fallback. `SMTP_FROM` is also used as the Resend sender.                                         |
-| `AI_PROVIDER`                                                   | server            | `local`, `openai`, `anthropic`, or `gemini`.                                                          |
-| `AI_MODEL`                                                      | server            | Provider model name.                                                                                  |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`         | server secret     | Required only for the chosen provider.                                                                |
 | `WEBHOOK_SIGNING_SECRET`                                        | server secret     | Required for webhook payload signing.                                                                 |
 | `PUBLIC_API_KEY_PREFIX`                                         | server            | Prefix for generated public API keys.                                                                 |
 | `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`                        | server            | In-memory limiter settings.                                                                           |
@@ -153,12 +150,6 @@ Resend is preferred for staging/prod. Configure:
 
 Domain verification must be completed in Resend before using a production sender. If `RESEND_API_KEY` is absent, the server falls back to SMTP when all SMTP variables are configured. If neither is configured, email-sending flows are skipped gracefully by the auth service where supported.
 
-## AI Providers
-
-Set `AI_PROVIDER=local` when no external provider is configured. External providers require the matching server-only API key. Provider API keys must never use `NEXT_PUBLIC_*`.
-
-Smoke test provider selection, streaming, cancellation, and permission-safe context in staging before enabling AI broadly.
-
 ## Background Jobs
 
 The current job runner is in-process and polls MongoDB. Run one backend worker/scheduler instance unless a distributed locking strategy is added. Multiple schedulers can duplicate work if they claim the same job concurrently without coordination.
@@ -200,9 +191,8 @@ Vercel and Railway native deploys should run only after CI passes on the target 
 - Task move across columns persists after refresh.
 - Two authenticated sessions receive realtime task/comment/notification updates.
 - Cloudinary upload, preview/download, and delete work.
-- AI is either functional or visibly disabled without crashing.
 - Light/dark theme switching persists.
-- Calendar, table, timeline, reports, analytics, and AI pages render without console errors.
+- Calendar, table, timeline, reports, and analytics pages render without console errors.
 
 ## Production Checklist
 

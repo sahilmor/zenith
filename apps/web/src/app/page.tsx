@@ -3,9 +3,6 @@ import Link from 'next/link';
 import {
   ArrowRight,
   BarChart3,
-  Bot,
-  BriefcaseBusiness,
-  Building2,
   CalendarDays,
   CheckCircle2,
   FileText,
@@ -13,11 +10,11 @@ import {
   LockKeyhole,
   MessageSquareText,
   MousePointer2,
-  Network,
   PanelsTopLeft,
   Search,
   ShieldCheck,
   Sparkles,
+  Users,
   Workflow,
   Zap,
   type LucideIcon,
@@ -29,19 +26,19 @@ import { Card } from '@/components/ui/card';
 export const metadata: Metadata = {
   title: 'Zenith | Enterprise Work Management',
   description:
-    'Zenith brings projects, tasks, documents, CRM, analytics, AI, automations, and customer success into one enterprise workspace.',
+    'Zenith brings projects, tasks, documents, collaboration, analytics, and automations into one workspace.',
 };
 
 const featureGroups = [
   {
     title: 'Plan and execute',
-    description: 'Run projects from strategy to day-to-day execution without losing context.',
+    description: 'Plan and execute project work without losing context.',
     icon: LayoutDashboard,
     items: [
       'Workspaces and RBAC',
       'Projects, boards, columns',
       'Tasks, subtasks, priorities',
-      'Kanban, calendar, table, timeline',
+      'Kanban, calendar, table, and timeline',
     ],
   },
   {
@@ -57,8 +54,7 @@ const featureGroups = [
   },
   {
     title: 'Knowledge platform',
-    description:
-      'Build a workspace memory with documents, spaces, templates, search, and AI retrieval.',
+    description: 'Build a workspace knowledge base with documents, spaces, templates, and search.',
     icon: FileText,
     items: [
       'Docs and wikis',
@@ -68,22 +64,10 @@ const featureGroups = [
     ],
   },
   {
-    title: 'Revenue and customers',
-    description:
-      'Manage accounts, leads, deals, onboarding, and customer health beside delivery work.',
-    icon: BriefcaseBusiness,
-    items: [
-      'CRM accounts and contacts',
-      'Leads and pipeline',
-      'Customer health',
-      'Sales activity tracking',
-    ],
-  },
-  {
-    title: 'Automation and AI',
-    description: 'Use provider-agnostic AI and workflow rules to reduce operational drag.',
-    icon: Bot,
-    items: ['AI Copilot', 'Prompt library', 'Workflow automations', 'Smart recommendations'],
+    title: 'Insights and automation',
+    description: 'Keep delivery visible and automate routine task workflows.',
+    icon: Workflow,
+    items: ['Analytics and reports', 'Task workflow automations', 'Notifications', 'Billing'],
   },
   {
     title: 'Enterprise operations',
@@ -110,23 +94,23 @@ const productPillars = [
   { label: 'Projects', icon: PanelsTopLeft, tone: 'text-cyan-300' },
   { label: 'Tasks', icon: CheckCircle2, tone: 'text-emerald-300' },
   { label: 'Docs', icon: FileText, tone: 'text-violet-300' },
-  { label: 'CRM', icon: Building2, tone: 'text-amber-300' },
   { label: 'Analytics', icon: BarChart3, tone: 'text-rose-300' },
-  { label: 'AI', icon: Sparkles, tone: 'text-sky-300' },
+  { label: 'Automations', icon: Workflow, tone: 'text-sky-300' },
+  { label: 'Members', icon: Users, tone: 'text-amber-300' },
 ] as const;
 
 const workflowRows = [
   { label: 'API Launch', stage: 'In Progress', owner: 'Engineering', tone: 'bg-cyan-400' },
   { label: 'Enterprise onboarding', stage: 'Review', owner: 'Success', tone: 'bg-emerald-400' },
-  { label: 'Renewal risk plan', stage: 'Today', owner: 'CRM', tone: 'bg-amber-300' },
+  { label: 'Plan next release', stage: 'Today', owner: 'Product', tone: 'bg-amber-300' },
 ] as const;
 
 const previewNavItems: readonly { label: string; icon: LucideIcon }[] = [
   { label: 'Projects', icon: PanelsTopLeft },
+  { label: 'Tasks', icon: CheckCircle2 },
   { label: 'Documents', icon: FileText },
-  { label: 'CRM', icon: BriefcaseBusiness },
   { label: 'Analytics', icon: BarChart3 },
-  { label: 'AI Copilot', icon: Bot },
+  { label: 'Automations', icon: Workflow },
 ];
 
 export default function HomePage() {
@@ -173,16 +157,15 @@ export default function HomePage() {
         <div className="space-y-7">
           <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-3 py-2 text-xs font-medium text-[var(--app-muted)]">
             <Sparkles className="size-4 text-emerald-300" />
-            Work, knowledge, customers, and AI in one operating system
+            Projects, tasks, and knowledge in one workspace
           </div>
           <div className="space-y-5">
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-[var(--app-text)] sm:text-5xl md:text-6xl xl:text-7xl">
               Run your whole company from one workspace.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[var(--app-muted)] md:text-lg">
-              Zenith brings project management, documents, CRM, customer success, analytics,
-              realtime collaboration, billing, automations, and AI Copilot into a clean enterprise
-              platform.
+              Zenith brings project management, documents, realtime collaboration, analytics,
+              billing, and workflow automations into a focused team workspace.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -283,12 +266,12 @@ export default function HomePage() {
         <InfoPanel
           icon={<Search className="size-5 text-emerald-300" />}
           title="Universal discovery"
-          description="Search tasks, projects, documents, CRM records, dashboards, templates, and activity with permission-aware results."
+          description="Search tasks, projects, documents, and team activity with permission-aware results."
         />
         <InfoPanel
           icon={<Workflow className="size-5 text-emerald-300" />}
           title="Automation-ready"
-          description="Rules, notifications, realtime events, audit logs, and AI workflows are designed to work together."
+          description="Task rules, notifications, realtime events, and audit logs work together."
         />
       </section>
 
@@ -302,8 +285,8 @@ export default function HomePage() {
               Build your Zenith workspace.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--app-muted)]">
-              Create an account, invite your team, and start connecting work across delivery,
-              knowledge, customers, reporting, and automation.
+              Create an account, invite your team, and connect delivery work, knowledge, reporting,
+              and automation.
             </p>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -339,7 +322,7 @@ function ProductPreview() {
           <aside className="min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-4">
             <div className="mb-4 flex min-w-0 items-center gap-2">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-400/15 text-emerald-300">
-                <Building2 className="size-4" />
+                <PanelsTopLeft className="size-4" />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">Acme Workspace</p>
@@ -361,20 +344,16 @@ function ProductPreview() {
           <div className="min-w-0 space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <PreviewMetric
-                label="Pipeline"
-                value="$164k"
-                icon={<BarChart3 className="size-4" />}
+                label="Open tasks"
+                value="18"
+                icon={<CheckCircle2 className="size-4" />}
               />
               <PreviewMetric
                 label="Tasks due"
                 value="18"
                 icon={<CalendarDays className="size-4" />}
               />
-              <PreviewMetric
-                label="Docs indexed"
-                value="342"
-                icon={<Network className="size-4" />}
-              />
+              <PreviewMetric label="Docs" value="342" icon={<FileText className="size-4" />} />
             </div>
             <div className="grid min-w-0 gap-3 lg:grid-cols-3">
               {['Todo', 'In Progress', 'Done'].map((column, index) => (

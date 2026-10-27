@@ -63,11 +63,6 @@ export const serverEnvSchema = z.object({
   SMTP_FROM: optionalMailFrom,
   RESEND_API_KEY: optionalString,
   APP_URL: z.string().url().default('http://localhost:3000'),
-  AI_PROVIDER: z.enum(['local', 'openai', 'anthropic', 'gemini']).default('local'),
-  AI_MODEL: z.string().min(1).default('local-deterministic'),
-  OPENAI_API_KEY: optionalString,
-  ANTHROPIC_API_KEY: optionalString,
-  GEMINI_API_KEY: optionalString,
 });
 
 export const webEnvSchema = z.object({

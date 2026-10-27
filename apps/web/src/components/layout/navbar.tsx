@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
@@ -10,7 +10,6 @@ import { WorkspaceSwitcher } from '@/features/workspaces/components/workspace-sw
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { apiRequest } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
-import { useAiStore } from '@/stores/ai-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
 import { ThemeToggle } from './theme-toggle';
 
@@ -18,7 +17,6 @@ export function Navbar() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
-  const toggleAi = useAiStore((state) => state.toggleSidebar);
   const toggleMobile = useSidebarStore((state) => state.toggleMobile);
   const logout = useMutation({
     mutationKey: ['sign-out'],
@@ -50,10 +48,6 @@ export function Navbar() {
           <WorkspaceSwitcher />
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-2">
-          <Button type="button" variant="secondary" onClick={toggleAi} className="shrink-0">
-            <Bot className="size-4" />
-            <span className="hidden sm:inline">AI</span>
-          </Button>
           <NotificationBell />
           <ThemeToggle />
           <Dropdown trigger={<Avatar name={user?.name} src={user?.avatar} />}>

@@ -20,13 +20,9 @@ import {
 } from '../../../utils/workspace-access.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
-import { automationService } from '../../ai/services/automation.service.js';
+import { automationService } from '../../automations/services/automation.service.js';
 import { webhookService } from '../../ops/services/webhook.service.js';
 import { auditLogService } from '../../ops/services/audit-log.service.js';
-import {
-  customFieldValueToSummary,
-  customizationService,
-} from '../../customization/services/customization.service.js';
 import type { SubtaskDocument } from '../models/subtask.model.js';
 import type { TaskDocument } from '../models/task.model.js';
 import { SubtaskRepository, TaskRepository } from '../repositories/task.repository.js';
@@ -64,39 +60,23 @@ export class TaskService {
     this.ensureColumnActive(column);
     const project = await this.requireProject(board.projectId);
     const order = await this.tasks.nextOrder(columnId);
-    const customizationInput: {
-      workspaceId: Types.ObjectId;
-      projectId: Types.ObjectId;
-      taskTypeId?: string | null;
-      customFields?: Record<string, unknown>;
-    } = {
-      workspaceId: board.workspaceId,
-      projectId: board.projectId,
-    };
-    if (input.customFields !== undefined) customizationInput.customFields = input.customFields;
-    if (input.taskTypeId !== undefined) customizationInput.taskTypeId = input.taskTypeId;
-    const customization = await customizationService.resolveTaskCustomization(customizationInput);
     const task = await this.tasks.create({
       workspaceId: board.workspaceId,
       projectId: board.projectId,
       boardId: board._id,
       columnId,
       title: input.title,
-      description: input.description ?? customization.description ?? null,
+      description: input.description ?? null,
       order,
-      priority: input.priority ?? customization.priority,
+      priority: input.priority,
       status: input.status,
       assigneeIds: input.assigneeIds.map((id) => new Types.ObjectId(id)),
       reporterId: userId,
-      labels: input.labels.length > 0 ? input.labels : (customization.labels ?? []),
+      labels: input.labels,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
       startDate: input.startDate ? new Date(input.startDate) : null,
       estimate: input.estimate ?? null,
       coverImage: input.coverImage ?? null,
-      taskTypeId: customization.taskTypeId,
-      workflowId: customization.workflowId,
-      workflowStateId: customization.workflowStateId,
-      customFields: customization.customFields,
       createdBy: userId,
     });
     await this.activity.record({
@@ -130,7 +110,7 @@ export class TaskService {
       actorId: userId.toString(),
       data: summary,
     });
-    void automationService.runForEvent({
+    automationService.runInBackground({
       workspaceId: task.workspaceId,
       actorId: userId,
       trigger: 'task_created',
@@ -231,20 +211,8 @@ export class TaskService {
         throw new BadRequestError('Task can only move within its board');
       }
       this.ensureColumnActive(column);
-      const transition = await customizationService.validateColumnMove({
-        task,
-        targetColumnId: column._id,
-        userId,
-      });
       update.columnId = column._id;
       update.order = await this.tasks.nextOrder(column._id);
-      if (transition.workflowStateId) update.workflowStateId = transition.workflowStateId;
-    }
-    if (input.customFields !== undefined) {
-      update.customFields = await customizationService.validateTaskCustomFields({
-        task,
-        customFields: input.customFields,
-      });
     }
 
     const updated = await this.tasks.update(taskId, update);
@@ -299,7 +267,7 @@ export class TaskService {
       actorId: userId.toString(),
       data: summary,
     });
-    void automationService.runForEvent({
+    automationService.runInBackground({
       workspaceId: updated.workspaceId,
       actorId: userId,
       trigger:
@@ -314,7 +282,7 @@ export class TaskService {
       },
     });
     if (input.assigneeIds !== undefined) {
-      void automationService.runForEvent({
+      automationService.runInBackground({
         workspaceId: updated.workspaceId,
         actorId: userId,
         trigger: 'task_assigned',
@@ -456,15 +424,9 @@ export class TaskService {
           const task = boardTasks.find((item) => item.id === taskId);
           if (!task) throw new NotFoundError('Task not found in board');
           const targetColumnId = new Types.ObjectId(column.columnId);
-          const transition = await customizationService.validateColumnMove({
-            task,
-            targetColumnId,
-            userId,
-          });
           await this.tasks.update(new Types.ObjectId(taskId), {
             columnId: targetColumnId,
             order,
-            ...(transition.workflowStateId ? { workflowStateId: transition.workflowStateId } : {}),
           });
         }),
       ),
@@ -733,8 +695,6 @@ export class TaskService {
     if ('estimate' in input && input.estimate !== undefined) update.estimate = input.estimate;
     if ('coverImage' in input && input.coverImage !== undefined)
       update.coverImage = input.coverImage;
-    if ('taskTypeId' in input && input.taskTypeId !== undefined)
-      update.taskTypeId = input.taskTypeId ? new Types.ObjectId(input.taskTypeId) : null;
     if (input.status === 'archived') update.archived = true;
     return update;
   }
@@ -775,23 +735,6 @@ export class TaskService {
       startDate: task.startDate?.toISOString() ?? null,
       estimate: task.estimate ?? null,
       coverImage: task.coverImage ?? null,
-      taskTypeId: task.taskTypeId?.toString() ?? null,
-      workflowId: task.workflowId?.toString() ?? null,
-      workflowStateId: task.workflowStateId ?? null,
-      customFields: task.customFields.map((value) =>
-        customFieldValueToSummary({
-          fieldId: value.fieldId,
-          key: value.key,
-          fieldType: value.fieldType,
-          stringValue: value.stringValue ?? null,
-          numberValue: value.numberValue ?? null,
-          booleanValue: value.booleanValue ?? null,
-          dateValue: value.dateValue ?? null,
-          userIdValue: value.userIdValue ?? null,
-          optionIdValue: value.optionIdValue ?? null,
-          arrayValue: value.arrayValue ?? [],
-        }),
-      ),
       archived: task.archived,
       createdBy: task.createdBy.toString(),
       createdAt: task.createdAt.toISOString(),

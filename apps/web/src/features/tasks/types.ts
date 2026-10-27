@@ -32,8 +32,6 @@ export interface CreateTaskInput {
   startDate?: string | null;
   estimate?: number | null;
   coverImage?: string | null;
-  taskTypeId?: string | null;
-  customFields?: Record<string, unknown>;
 }
 
 export interface UpdateTaskInput {
@@ -48,8 +46,6 @@ export interface UpdateTaskInput {
   startDate?: string | null;
   estimate?: number | null;
   coverImage?: string | null;
-  taskTypeId?: string | null;
-  customFields?: Record<string, unknown>;
 }
 
 export interface TaskFilters {

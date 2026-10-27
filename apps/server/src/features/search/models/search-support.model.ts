@@ -1,4 +1,3 @@
-import type { SearchEntityType } from '@pm/types';
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
 
 const savedSearchSchema = new Schema(
@@ -44,55 +43,12 @@ const searchAnalyticsSchema = new Schema(
 
 searchAnalyticsSchema.index({ workspaceId: 1, normalizedQuery: 1, createdAt: -1 });
 
-const knowledgeChunkSchema = new Schema(
-  {
-    workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
-    sourceEntityType: {
-      type: String,
-      enum: [
-        'project',
-        'board',
-        'task',
-        'document_space',
-        'document_folder',
-        'document_page',
-        'document_template',
-        'user',
-        'form',
-        'goal',
-        'initiative',
-        'portfolio',
-        'attachment',
-      ] satisfies SearchEntityType[],
-      required: true,
-      index: true,
-    },
-    sourceEntityId: { type: Schema.Types.ObjectId, required: true, index: true },
-    sectionId: { type: String, default: null },
-    heading: { type: String, default: null, trim: true, maxlength: 240 },
-    content: { type: String, required: true, trim: true, maxlength: 4000 },
-    version: { type: Number, default: 1, min: 1 },
-    chunkOrder: { type: Number, required: true, min: 0 },
-    chunkSize: { type: Number, required: true, min: 0 },
-    embeddingProvider: { type: String, default: null },
-    embeddingId: { type: String, default: null },
-  },
-  { timestamps: true },
-);
-
-knowledgeChunkSchema.index(
-  { sourceEntityType: 1, sourceEntityId: 1, version: 1, chunkOrder: 1 },
-  { unique: true },
-);
-
 export type SavedSearch = InferSchemaType<typeof savedSearchSchema>;
 export type SavedSearchDocument = HydratedDocument<SavedSearch>;
 export type RecentSearch = InferSchemaType<typeof recentSearchSchema>;
 export type RecentSearchDocument = HydratedDocument<RecentSearch>;
 export type SearchAnalytics = InferSchemaType<typeof searchAnalyticsSchema>;
 export type SearchAnalyticsDocument = HydratedDocument<SearchAnalytics>;
-export type KnowledgeChunk = InferSchemaType<typeof knowledgeChunkSchema>;
-export type KnowledgeChunkDocument = HydratedDocument<KnowledgeChunk>;
 
 export const SavedSearchModel = model<SavedSearch>('SavedSearch', savedSearchSchema);
 export const RecentSearchModel = model<RecentSearch>('RecentSearch', recentSearchSchema);
@@ -100,4 +56,3 @@ export const SearchAnalyticsModel = model<SearchAnalytics>(
   'SearchAnalytics',
   searchAnalyticsSchema,
 );
-export const KnowledgeChunkModel = model<KnowledgeChunk>('KnowledgeChunk', knowledgeChunkSchema);

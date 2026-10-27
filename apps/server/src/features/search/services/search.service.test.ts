@@ -12,7 +12,6 @@ import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.m
 import { WorkspaceService } from '../../workspaces/services/workspace.service.js';
 import { ProjectService } from '../../projects/services/project.service.js';
 import { TaskService } from '../../tasks/services/task.service.js';
-import { StrategicService } from '../../strategic/services/strategic.service.js';
 
 const tokens = new TokenService();
 
@@ -41,7 +40,7 @@ describe('Universal search module', () => {
     await mongo.stop();
   });
 
-  it('indexes core entities, respects document permissions, and feeds AI retrieval', async () => {
+  it('indexes core entities and respects document permissions', async () => {
     const app = createApp();
     const owner = await createUser('search-owner@example.com', 'Search Owner');
     const member = await createUser('search-member@example.com', 'Search Member');
@@ -126,23 +125,6 @@ describe('Universal search module', () => {
       })
       .expect(201);
 
-    const goal = await new StrategicService().createGoal(
-      new mongoose.Types.ObjectId(workspace.id),
-      owner._id,
-      { title: 'Universal search rollup goal' } as never,
-    );
-
-    const goalSearch = await request(app)
-      .get(`/api/search?workspaceId=${workspace.id}&q=rollup&entityTypes=goal`)
-      .set('Authorization', bearer(owner))
-      .expect(200);
-
-    expect(
-      goalSearch.body.data.results.some(
-        (result: { entityId: string }) => result.entityId === goal.id,
-      ),
-    ).toBe(true);
-
     const ownerSearch = await request(app)
       .get(`/api/search?workspaceId=${workspace.id}&q=search&entityTypes=task,document_page`)
       .set('Authorization', bearer(owner))
@@ -200,14 +182,5 @@ describe('Universal search module', () => {
       .expect(200);
 
     expect(analytics.body.data.totalSearches).toBeGreaterThan(0);
-
-    const aiSearch = await request(app)
-      .post('/api/ai/search')
-      .set('Authorization', bearer(owner))
-      .send({ workspaceId: workspace.id, query: 'retrieval content' })
-      .expect(200);
-
-    expect(aiSearch.body.data.results.length).toBeGreaterThan(0);
-    expect(aiSearch.body.data.citations.length).toBeGreaterThan(0);
   });
 });

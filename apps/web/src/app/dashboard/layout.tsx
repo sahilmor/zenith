@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navbar } from '@/components/layout/navbar';
 import { Sidebar } from '@/components/layout/sidebar';
-import { AiCopilotSidebar } from '@/features/ai/components/ai-copilot-sidebar';
 
 export default function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -15,7 +14,6 @@ export default function DashboardLayout({ children }: Readonly<{ children: React
           </div>
         </div>
       </div>
-      <AiCopilotSidebar />
     </div>
   );
 }

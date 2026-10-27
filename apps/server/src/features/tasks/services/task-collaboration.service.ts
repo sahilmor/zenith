@@ -42,7 +42,7 @@ import type {
 import { isSupportedAttachment, maxAttachmentSize } from '../../../middleware/upload.middleware.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
-import { automationService } from '../../ai/services/automation.service.js';
+import { automationService } from '../../automations/services/automation.service.js';
 import { webhookService } from '../../ops/services/webhook.service.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 
@@ -100,7 +100,7 @@ export class TaskCollaborationService {
         }),
       ),
     );
-    void automationService.runForEvent({
+    automationService.runInBackground({
       workspaceId: task.workspaceId,
       actorId: userId,
       trigger: 'comment_added',
@@ -264,7 +264,7 @@ export class TaskCollaborationService {
         }),
       ),
     );
-    void automationService.runForEvent({
+    automationService.runInBackground({
       workspaceId: task.workspaceId,
       actorId: userId,
       trigger: 'attachment_uploaded',

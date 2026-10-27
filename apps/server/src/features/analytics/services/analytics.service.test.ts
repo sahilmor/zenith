@@ -10,6 +10,7 @@ import { ProjectService } from '../../projects/services/project.service.js';
 import { UserModel, type UserDocument } from '../../users/models/user.model.js';
 import { WorkspaceService } from '../../workspaces/services/workspace.service.js';
 import { TaskService } from '../../tasks/services/task.service.js';
+import { ActivityEventModel } from '../../activity/models/activity-event.model.js';
 
 const tokens = new TokenService();
 
@@ -94,6 +95,28 @@ describe('Analytics and reporting module', () => {
       expect.arrayContaining([expect.objectContaining({ key: 'open', value: 1 })]),
     );
     expect(response.body.data.projectProgress[0]).toMatchObject({ label: 'Growth', value: 50 });
+  });
+
+  it('excludes legacy activity events from removed product areas', async () => {
+    const app = createApp();
+    const user = await createUser('legacy-events@example.com');
+    const { workspace } = await seedAnalyticsWorkspace(user);
+    await ActivityEventModel.collection.insertOne({
+      workspaceId: new mongoose.Types.ObjectId(workspace.id),
+      actorId: user._id,
+      event: 'crm.contact.created',
+      metadata: {},
+      createdAt: new Date(),
+    });
+
+    const response = await request(app)
+      .get(`/api/analytics/dashboard?workspaceId=${workspace.id}`)
+      .set('Authorization', bearer(user))
+      .expect(200);
+
+    expect(response.body.data.teamActivity).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ event: 'crm.contact.created' })]),
+    );
   });
 
   it('exports reports as csv, xlsx, and pdf', async () => {
