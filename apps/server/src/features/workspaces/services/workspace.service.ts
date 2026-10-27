@@ -22,7 +22,7 @@ import {
 import { EmailService, type EmailSender } from '../../../services/email.service.js';
 import { realtimeService } from '../../../sockets/realtime.service.js';
 import { notificationService } from '../../notifications/services/notification.service.js';
-import { automationService } from '../../ai/services/automation.service.js';
+import { automationService } from '../../automations/services/automation.service.js';
 import { auditLogService } from '../../ops/services/audit-log.service.js';
 import { entitlementService } from '../../billing/services/entitlement.service.js';
 import type {
@@ -386,7 +386,7 @@ export class WorkspaceService {
       actorId: user.id,
       data: { userId: user.id, role: invitation.role },
     });
-    void automationService.runForEvent({
+    automationService.runInBackground({
       workspaceId: invitation.workspaceId,
       actorId: user._id,
       trigger: 'workspace_invitation_accepted',

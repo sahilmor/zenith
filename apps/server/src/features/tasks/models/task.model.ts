@@ -1,26 +1,4 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
-import { customFieldTypes } from '../../customization/models/custom-field-definition.model.js';
-
-const customFieldValueSchema = new Schema(
-  {
-    fieldId: {
-      type: Schema.Types.ObjectId,
-      ref: 'CustomFieldDefinition',
-      required: true,
-      index: true,
-    },
-    key: { type: String, required: true, trim: true, lowercase: true, index: true },
-    fieldType: { type: String, enum: customFieldTypes, required: true },
-    stringValue: { type: String, default: null, trim: true },
-    numberValue: { type: Number, default: null },
-    booleanValue: { type: Boolean, default: null },
-    dateValue: { type: Date, default: null },
-    userIdValue: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-    optionIdValue: { type: String, default: null, trim: true },
-    arrayValue: [{ type: String, trim: true }],
-  },
-  { _id: false },
-);
 
 const taskSchema = new Schema(
   {
@@ -52,10 +30,6 @@ const taskSchema = new Schema(
     startDate: { type: Date, default: null },
     estimate: { type: Number, default: null, min: 0 },
     coverImage: { type: String, default: null, trim: true },
-    taskTypeId: { type: Schema.Types.ObjectId, ref: 'TaskType', default: null, index: true },
-    workflowId: { type: Schema.Types.ObjectId, ref: 'Workflow', default: null, index: true },
-    workflowStateId: { type: String, default: null, trim: true, index: true },
-    customFields: { type: [customFieldValueSchema], default: [] },
     archived: { type: Boolean, default: false, index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
@@ -64,10 +38,6 @@ const taskSchema = new Schema(
 
 taskSchema.index({ columnId: 1, order: 1 });
 taskSchema.index({ dueDate: 1, dueDateAutomationRunAt: 1, archived: 1 });
-taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.stringValue': 1 });
-taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.numberValue': 1 });
-taskSchema.index({ workspaceId: 1, 'customFields.key': 1, 'customFields.dateValue': 1 });
-
 export type Task = InferSchemaType<typeof taskSchema>;
 export type TaskDocument = HydratedDocument<Task>;
 export const TaskModel = model<Task>('Task', taskSchema);

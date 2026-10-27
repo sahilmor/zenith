@@ -4,7 +4,7 @@ import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
 import { backgroundJobService } from './features/ops/services/background-job.service.js';
 import { auditLogService } from './features/ops/services/audit-log.service.js';
-import { automationService } from './features/ai/services/automation.service.js';
+import { automationService } from './features/automations/services/automation.service.js';
 import { initializeSocketServer } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 

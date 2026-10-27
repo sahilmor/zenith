@@ -26,7 +26,7 @@ export default function ProjectsPage() {
         <PageHeader
           eyebrow="Workspace"
           title="Projects"
-          description="Create and organize workspace initiatives, boards, and task workflows."
+          description="Create and organize workspace projects, boards, and task workflows."
           actions={
             <Button onClick={() => setCreateOpen(true)} disabled={!workspaceId}>
               <Plus className="size-4" />

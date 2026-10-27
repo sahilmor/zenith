@@ -94,9 +94,6 @@ const documentLinkKeys: Partial<Record<DocumentRelationshipTargetType, string[]>
   document: ['documentId'],
   task: ['taskId'],
   project: ['projectId'],
-  goal: ['goalId'],
-  incident: ['incidentId'],
-  form: ['formId'],
   template: ['templateId'],
   file: ['fileId'],
 };

@@ -39,8 +39,6 @@ export const createTaskSchema = z.object({
       startDate: optionalDate,
       estimate: z.coerce.number().int().min(0).max(100000).optional().nullable(),
       coverImage: z.string().trim().url().optional().nullable(),
-      taskTypeId: objectId.optional().nullable(),
-      customFields: z.record(z.unknown()).default({}),
     })
     .refine(
       (value) =>
@@ -68,8 +66,6 @@ export const updateTaskSchema = z.object({
       startDate: optionalDate,
       estimate: z.coerce.number().int().min(0).max(100000).optional().nullable(),
       coverImage: z.string().trim().url().optional().nullable(),
-      taskTypeId: objectId.optional().nullable(),
-      customFields: z.record(z.unknown()).optional(),
     })
     .refine((value) => Object.keys(value).length > 0, 'At least one field is required')
     .refine(
@@ -190,10 +186,7 @@ export const updateSubtaskSchema = z.object({
 export const archiveTaskSchema = taskParamsSchema;
 export const restoreTaskSchema = taskParamsSchema;
 
-type CreateTaskBody = z.infer<typeof createTaskSchema>['body'];
-export type CreateTaskInput = Omit<CreateTaskBody, 'customFields'> & {
-  customFields?: Record<string, unknown>;
-};
+export type CreateTaskInput = z.infer<typeof createTaskSchema>['body'];
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>['body'];
 export type ReorderTasksInput = z.infer<typeof reorderTasksSchema>['body'];
 export type ListTasksQuery = z.infer<typeof listTasksSchema>['query'];

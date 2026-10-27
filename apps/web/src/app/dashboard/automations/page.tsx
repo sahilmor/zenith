@@ -8,7 +8,11 @@ import { PageHeader } from '@/components/common/page-header';
 import { Skeleton } from '@/components/common/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useAutomations, useCreateAutomation, useTestAutomation } from '@/features/ai/api/ai-hooks';
+import {
+  useAutomations,
+  useCreateAutomation,
+  useTestAutomation,
+} from '@/features/automations/api/automation-hooks';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 
 const triggers: AutomationTriggerType[] = [
@@ -25,7 +29,6 @@ const actions: AutomationActionType[] = [
   'change_status',
   'change_priority',
   'create_comment',
-  'call_ai',
   'webhook',
   'email',
 ];
@@ -58,7 +61,7 @@ export default function AutomationsPage() {
         <PageHeader
           eyebrow="Automations"
           title="Workflow engine"
-          description="Create reusable rules with triggers, conditions, actions, and AI-powered automation steps."
+          description="Create reusable rules with triggers, conditions, and actions."
           actions={
             <Button onClick={save} disabled={!workspaceId || !name.trim()}>
               <Plus className="size-4" />

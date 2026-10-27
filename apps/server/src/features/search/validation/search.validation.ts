@@ -11,10 +11,6 @@ export const searchEntityTypes = [
   'document_page',
   'document_template',
   'user',
-  'form',
-  'goal',
-  'initiative',
-  'portfolio',
   'attachment',
 ] as const;
 

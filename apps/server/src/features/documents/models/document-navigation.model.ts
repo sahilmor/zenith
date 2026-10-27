@@ -116,7 +116,7 @@ const documentRelationshipSchema = new Schema<DocumentRelationshipDocument>(
     sourcePageId: { type: Schema.Types.ObjectId, ref: 'DocumentPage', required: true, index: true },
     targetType: {
       type: String,
-      enum: ['page', 'task', 'project', 'goal', 'incident', 'form', 'template', 'document', 'file'],
+      enum: ['page', 'task', 'project', 'template', 'document', 'file'],
       required: true,
     },
     targetId: { type: Schema.Types.ObjectId, required: true, index: true },

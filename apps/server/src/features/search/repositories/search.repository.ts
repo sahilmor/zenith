@@ -2,14 +2,24 @@ import type { SearchEntityType } from '@pm/types';
 import type { FilterQuery, Types } from 'mongoose';
 import { SearchIndexModel, type SearchIndexDocument } from '../models/search-index.model.js';
 import {
-  KnowledgeChunkModel,
-  type KnowledgeChunkDocument,
   RecentSearchModel,
   type RecentSearchDocument,
   SavedSearchModel,
   type SavedSearchDocument,
   SearchAnalyticsModel,
 } from '../models/search-support.model.js';
+
+const supportedEntityTypes: SearchEntityType[] = [
+  'project',
+  'board',
+  'task',
+  'document_space',
+  'document_folder',
+  'document_page',
+  'document_template',
+  'user',
+  'attachment',
+];
 
 export interface SearchIndexInput {
   readonly workspaceId: Types.ObjectId;
@@ -79,6 +89,7 @@ export class SearchRepository {
   }): Promise<SearchIndexDocument[]> {
     const filter: FilterQuery<SearchIndexDocument> = {
       workspaceId: input.workspaceId,
+      entityType: { $in: supportedEntityTypes },
       archived: false,
       ...(input.query
         ? {
@@ -192,47 +203,16 @@ export class SearchRepository {
     };
   }
 
-  public async replaceChunks(
-    sourceEntityType: SearchEntityType,
-    sourceEntityId: Types.ObjectId,
-    chunks: {
-      workspaceId: Types.ObjectId;
-      sourceEntityType: SearchEntityType;
-      sourceEntityId: Types.ObjectId;
-      sectionId: string | null;
-      heading: string | null;
-      content: string;
-      version: number;
-      chunkOrder: number;
-      chunkSize: number;
-      embeddingProvider: string | null;
-      embeddingId: string | null;
-    }[],
-  ): Promise<KnowledgeChunkDocument[]> {
-    await KnowledgeChunkModel.deleteMany({ sourceEntityType, sourceEntityId }).exec();
-    if (chunks.length === 0) return [];
-    return KnowledgeChunkModel.insertMany(chunks) as Promise<KnowledgeChunkDocument[]>;
-  }
-
-  public async listChunks(input: {
-    workspaceId: Types.ObjectId;
-    query: string;
-    limit: number;
-  }): Promise<KnowledgeChunkDocument[]> {
-    return KnowledgeChunkModel.find({
-      workspaceId: input.workspaceId,
-      content: { $regex: input.query, $options: 'i' },
-    })
-      .sort({ updatedAt: -1, chunkOrder: 1 })
-      .limit(input.limit)
-      .exec() as Promise<KnowledgeChunkDocument[]>;
-  }
-
   private toFilter(input: SearchIndexFilters): FilterQuery<SearchIndexDocument> {
     return {
       workspaceId: input.workspaceId,
+      entityType: {
+        $in:
+          input.entityTypes !== undefined
+            ? input.entityTypes.filter((type) => supportedEntityTypes.includes(type))
+            : supportedEntityTypes,
+      },
       ...(input.archived !== undefined ? { archived: input.archived } : { archived: false }),
-      ...(input.entityTypes?.length ? { entityType: { $in: input.entityTypes } } : {}),
       ...(input.ownerId ? { ownerId: input.ownerId } : {}),
       ...(input.updatedFrom || input.updatedTo
         ? {

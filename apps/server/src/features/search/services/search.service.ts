@@ -1,5 +1,4 @@
 import type {
-  KnowledgeChunkSummary,
   RecentSearchSummary,
   SavedSearchSummary,
   SearchAnalyticsSummary,
@@ -30,19 +29,11 @@ import { DocumentSpaceModel } from '../../documents/models/document-space.model.
 import { ProjectModel } from '../../projects/models/project.model.js';
 import { AttachmentModel } from '../../tasks/models/attachment.model.js';
 import { TaskModel } from '../../tasks/models/task.model.js';
-import { GoalModel } from '../../strategic/models/goal.model.js';
-import { InitiativeModel } from '../../strategic/models/initiative.model.js';
-import { PortfolioModel } from '../../strategic/models/portfolio.model.js';
-import { IntakeFormModel } from '../../customization/models/intake-form.model.js';
 import { UserModel } from '../../users/models/user.model.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
 import { WorkspaceRepository } from '../../workspaces/repositories/workspace.repository.js';
 import type { SearchIndexDocument } from '../models/search-index.model.js';
-import type {
-  KnowledgeChunkDocument,
-  RecentSearchDocument,
-  SavedSearchDocument,
-} from '../models/search-support.model.js';
+import type { RecentSearchDocument, SavedSearchDocument } from '../models/search-support.model.js';
 import { SearchRepository } from '../repositories/search.repository.js';
 import type {
   SavedSearchInput,
@@ -238,40 +229,8 @@ export class SearchService {
     return this.searchRepository.analytics(workspaceId);
   }
 
-  public async retrieveForAi(input: {
-    workspaceId: Types.ObjectId;
-    userId: Types.ObjectId;
-    query: string;
-    limit?: number;
-  }): Promise<KnowledgeChunkSummary[]> {
-    await requireWorkspaceMembership(this.workspaces, input.workspaceId, input.userId);
-    await entitlementService.requireFeature(input.workspaceId, 'advanced_search');
-    await this.syncWorkspaceIndex(input.workspaceId);
-    const chunks = await this.searchRepository.listChunks({
-      workspaceId: input.workspaceId,
-      query: input.query,
-      limit: input.limit ?? 8,
-    });
-    return (await this.filterReadableChunks(chunks, input.userId)).map((chunk) =>
-      this.toKnowledgeChunk(chunk),
-    );
-  }
-
   public async syncWorkspaceIndex(workspaceId: Types.ObjectId): Promise<void> {
-    const [
-      projects,
-      boards,
-      tasks,
-      spaces,
-      folders,
-      pages,
-      templates,
-      users,
-      goals,
-      initiatives,
-      portfolios,
-      forms,
-    ] = await Promise.all([
+    const [projects, boards, tasks, spaces, folders, pages, templates, users] = await Promise.all([
       ProjectModel.find({ workspaceId }).exec(),
       BoardModel.find({ workspaceId }).exec(),
       TaskModel.find({ workspaceId }).exec(),
@@ -280,10 +239,6 @@ export class SearchService {
       DocumentPageModel.find({ workspaceId, status: { $ne: 'deleted' } }).exec(),
       DocumentPageTemplateModel.find({ workspaceId }).exec(),
       WorkspaceMemberModel.find({ workspaceId, status: 'active' }).limit(100).exec(),
-      GoalModel.find({ workspaceId }).exec(),
-      InitiativeModel.find({ workspaceId }).exec(),
-      PortfolioModel.find({ workspaceId }).exec(),
-      IntakeFormModel.find({ workspaceId }).exec(),
     ]);
     const workspaceUsers = await UserModel.find({
       _id: { $in: users.map((member) => member.userId) },
@@ -370,69 +325,6 @@ export class SearchService {
       ),
       ...pages.map((page) => this.indexPage(page)),
       ...templates.map((template) => this.indexTemplate(template)),
-      ...goals.map((goal) =>
-        this.searchRepository.upsertIndex({
-          workspaceId,
-          entityId: goal._id,
-          entityType: 'goal',
-          title: goal.title,
-          description: goal.description ?? null,
-          content: compactText(goal.title, goal.description),
-          ownerId: goal.ownerId,
-          visibility: 'workspace',
-          archived: goal.archived,
-          updatedSourceAt: goal.updatedAt,
-          url: `/dashboard/goals/${goal.id}`,
-          metadata: { status: goal.status, health: goal.health },
-        }),
-      ),
-      ...initiatives.map((initiative) =>
-        this.searchRepository.upsertIndex({
-          workspaceId,
-          entityId: initiative._id,
-          entityType: 'initiative',
-          title: initiative.name,
-          description: initiative.description ?? null,
-          content: compactText(initiative.name, initiative.description),
-          ownerId: initiative.ownerId,
-          visibility: 'workspace',
-          archived: initiative.archived,
-          updatedSourceAt: initiative.updatedAt,
-          url: '/dashboard/initiatives',
-          metadata: { status: initiative.status, health: initiative.health },
-        }),
-      ),
-      ...portfolios.map((portfolio) =>
-        this.searchRepository.upsertIndex({
-          workspaceId,
-          entityId: portfolio._id,
-          entityType: 'portfolio',
-          title: portfolio.name,
-          description: portfolio.description ?? null,
-          content: compactText(portfolio.name, portfolio.description),
-          ownerId: portfolio.ownerId,
-          visibility: 'workspace',
-          archived: portfolio.archived,
-          updatedSourceAt: portfolio.updatedAt,
-          url: '/dashboard/portfolios',
-          metadata: { status: portfolio.status, health: portfolio.health },
-        }),
-      ),
-      ...forms.map((form) =>
-        this.searchRepository.upsertIndex({
-          workspaceId,
-          entityId: form._id,
-          entityType: 'form',
-          title: form.name,
-          description: form.description ?? null,
-          content: compactText(form.name, form.description),
-          visibility: 'workspace',
-          archived: !form.active,
-          updatedSourceAt: form.updatedAt,
-          url: '/dashboard/customization',
-          metadata: { visibility: form.visibility, slug: form.slug },
-        }),
-      ),
       ...attachments.flatMap((attachment) => {
         const parentTask = taskById.get(attachment.taskId.toString());
         if (!parentTask) return [];
@@ -505,17 +397,6 @@ export class SearchService {
       url: '/dashboard/documents',
       metadata: { status: page.status, tagIds: page.tagIds.map((tagId) => tagId.toString()) },
     });
-    await this.searchRepository.replaceChunks(
-      'document_page',
-      page._id,
-      this.chunkContent({
-        workspaceId: page.workspaceId,
-        sourceEntityType: 'document_page',
-        sourceEntityId: page._id,
-        content,
-        version: page.currentVersion || 1,
-      }),
-    );
   }
 
   private async indexTemplate(template: DocumentPageTemplateDocument): Promise<void> {
@@ -540,34 +421,6 @@ export class SearchService {
     });
   }
 
-  private chunkContent(input: {
-    workspaceId: Types.ObjectId;
-    sourceEntityType: SearchEntityType;
-    sourceEntityId: Types.ObjectId;
-    content: string;
-    version: number;
-  }) {
-    const words = input.content.split(/\s+/).filter(Boolean);
-    const chunks = [];
-    for (let index = 0; index < words.length; index += 120) {
-      const content = words.slice(index, index + 120).join(' ');
-      chunks.push({
-        workspaceId: input.workspaceId,
-        sourceEntityType: input.sourceEntityType,
-        sourceEntityId: input.sourceEntityId,
-        sectionId: null,
-        heading: null,
-        content,
-        version: input.version,
-        chunkOrder: index / 120,
-        chunkSize: content.length,
-        embeddingProvider: null,
-        embeddingId: null,
-      });
-    }
-    return chunks;
-  }
-
   private async filterReadableResults(
     documents: SearchIndexDocument[],
     userId: Types.ObjectId,
@@ -580,22 +433,6 @@ export class SearchService {
       }
       const page = await DocumentPageModel.findById(document.entityId).exec();
       if (page && (await this.canReadPage(page, userId))) readable.push(document);
-    }
-    return readable;
-  }
-
-  private async filterReadableChunks(
-    chunks: KnowledgeChunkDocument[],
-    userId: Types.ObjectId,
-  ): Promise<KnowledgeChunkDocument[]> {
-    const readable = [];
-    for (const chunk of chunks) {
-      if (chunk.sourceEntityType !== 'document_page') {
-        readable.push(chunk);
-        continue;
-      }
-      const page = await DocumentPageModel.findById(chunk.sourceEntityId).exec();
-      if (page && (await this.canReadPage(page, userId))) readable.push(chunk);
     }
     return readable;
   }
@@ -718,10 +555,6 @@ export class SearchService {
       'document_page',
       'document_template',
       'user',
-      'form',
-      'goal',
-      'initiative',
-      'portfolio',
       'attachment',
     ].includes(value);
   }
@@ -748,24 +581,6 @@ export class SearchService {
       query: search.query,
       filters: search.filters,
       createdAt: search.createdAt.toISOString(),
-    };
-  }
-
-  private toKnowledgeChunk(chunk: KnowledgeChunkDocument): KnowledgeChunkSummary {
-    return {
-      id: chunk.id,
-      workspaceId: chunk.workspaceId.toString(),
-      sourceEntityType: chunk.sourceEntityType,
-      sourceEntityId: chunk.sourceEntityId.toString(),
-      sectionId: chunk.sectionId ?? null,
-      heading: chunk.heading ?? null,
-      content: chunk.content,
-      version: chunk.version,
-      chunkOrder: chunk.chunkOrder,
-      chunkSize: chunk.chunkSize,
-      embeddingProvider: chunk.embeddingProvider ?? null,
-      embeddingId: chunk.embeddingId ?? null,
-      updatedAt: chunk.updatedAt.toISOString(),
     };
   }
 }

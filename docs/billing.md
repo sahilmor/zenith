@@ -39,8 +39,7 @@ Backend enforcement exists for:
 - Project creation: `projects`
 - Member invitations and invitation acceptance: `members`
 - Attachment upload: `storageBytes`
-- AI chat/actions: `ai`, `aiRequests`
-- Natural-language AI search: `advanced_search`
+- Workspace search: `advanced_search`
 - Automation creation: `automations`
 - API key creation: `public_api`, `apiKeys`
 - Webhook creation: `webhooks`

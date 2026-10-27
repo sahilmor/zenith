@@ -1,6 +1,9 @@
 import type { TaskPriority, TaskStatus } from '@pm/types';
 import type { FilterQuery, Types } from 'mongoose';
-import { ActivityEventModel } from '../../activity/models/activity-event.model.js';
+import {
+  ActivityEventModel,
+  activityEventNames,
+} from '../../activity/models/activity-event.model.js';
 import { BoardModel } from '../../boards/models/board.model.js';
 import { ColumnModel } from '../../boards/models/column.model.js';
 import { ProjectModel } from '../../projects/models/project.model.js';
@@ -288,6 +291,7 @@ export class AnalyticsRepository {
 
   public async taskActivity(scope: AnalyticsScopeQuery, limit = 20) {
     const filter: Record<string, unknown> = {};
+    filter.event = { $in: activityEventNames };
     if (scope.workspaceId) filter.workspaceId = scope.workspaceId;
     if (scope.from || scope.to) {
       filter.createdAt = {

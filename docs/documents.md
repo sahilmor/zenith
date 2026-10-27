@@ -1,7 +1,7 @@
 # Documents, Wikis, and Knowledge Platform
 
-Zenith includes a workspace document and knowledge foundation integrated with existing workspace
-permissions, billing, activity, realtime, notifications, and the dashboard shell.
+Zenith includes a workspace document foundation integrated with existing workspace permissions,
+billing, activity, realtime, notifications, search, and the dashboard shell.
 
 ## Architecture
 
@@ -238,8 +238,8 @@ names. Supported operations are sync, import, export, bulk, media upload/update/
 update, and cleanup.
 
 Structured logs emit matching operation measurements with request IDs so incidents can be traced
-between HTTP logs, audit logs, and document metrics. Do not log document text, secrets, tokens,
-Cloudinary credentials, or AI provider keys.
+between HTTP logs, audit logs, and document metrics. Do not log document text, secrets, tokens, or
+Cloudinary credentials.
 
 ## Backup and Recovery
 
@@ -253,7 +253,7 @@ Recovery order:
 1. Restore MongoDB collections for the affected workspace.
 2. Verify workspace memberships and document permissions.
 3. Verify media metadata and Cloudinary asset availability.
-4. Rebuild search indexes and knowledge chunks.
+4. Rebuild search indexes.
 5. Reconcile activity/audit history.
 6. Run targeted smoke tests for page read, edit, publish, search, import, export, and media preview.
 
@@ -292,6 +292,6 @@ offline queue status, Markdown import, Markdown export, media upload/listing, an
 This implementation does not claim full Notion-style CRDT/OT collaborative editing. Multi-cursor
 editing, slash-command block insertion UI, full inline comment text ranges, drag-and-drop block
 movement UI, full manual conflict merge UI, binary DOCX/PDF import parsing, chunked uploads, public
-link sharing, synced blocks, and AI document generation remain future foundations. The current
-backlink, template, operational sync, import/export, bulk operation, media, and retention APIs are
-functional and covered by backend integration tests.
+link sharing, and synced blocks remain future foundations. The current backlink, template,
+operational sync, import/export, bulk operation, media, and retention APIs are functional and
+covered by backend integration tests.

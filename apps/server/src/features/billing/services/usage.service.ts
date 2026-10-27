@@ -1,32 +1,12 @@
 import type { BillingUsage } from '@pm/types';
 import type { Types } from 'mongoose';
-import { AutomationRuleModel } from '../../ai/models/automation-rule.model.js';
+import { AutomationRuleModel } from '../../automations/models/automation-rule.model.js';
 import { BoardModel } from '../../boards/models/board.model.js';
-import { CustomFieldDefinitionModel } from '../../customization/models/custom-field-definition.model.js';
-import { IntakeFormModel } from '../../customization/models/intake-form.model.js';
-import { TaskTypeModel } from '../../customization/models/task-type.model.js';
-import { TemplateModel } from '../../customization/models/template.model.js';
-import { WorkflowModel } from '../../customization/models/workflow.model.js';
-import {
-  CrmAccountModel,
-  CrmContactModel,
-  CrmDealModel,
-  CrmLeadModel,
-} from '../../crm/models/crm.model.js';
 import { DocumentPageModel } from '../../documents/models/document-page.model.js';
 import { DocumentSpaceModel } from '../../documents/models/document-space.model.js';
-import {
-  DevOpsDeploymentModel,
-  DevOpsPipelineRunModel,
-  DevOpsRepositoryModel,
-} from '../../devops/models/devops.model.js';
 import { ApiKeyModel } from '../../ops/models/api-key.model.js';
 import { WebhookEndpointModel } from '../../ops/models/webhook-endpoint.model.js';
 import { ProjectModel } from '../../projects/models/project.model.js';
-import { ResourceProfileModel } from '../../resources/models/resource.model.js';
-import { GoalModel } from '../../strategic/models/goal.model.js';
-import { InitiativeModel } from '../../strategic/models/initiative.model.js';
-import { PortfolioModel } from '../../strategic/models/portfolio.model.js';
 import { AttachmentModel } from '../../tasks/models/attachment.model.js';
 import { TaskModel } from '../../tasks/models/task.model.js';
 import { WorkspaceMemberModel } from '../../workspaces/models/workspace-member.model.js';
@@ -99,24 +79,8 @@ export class UsageService {
       automations,
       apiKeys,
       webhooks,
-      goals,
-      initiatives,
-      portfolios,
-      customFields,
-      taskTypes,
-      workflows,
-      activeForms,
-      templates,
       documentSpaces,
       documentPages,
-      resourceProfiles,
-      crmAccounts,
-      crmContacts,
-      crmLeads,
-      crmDeals,
-      devOpsRepositories,
-      devOpsPipelines,
-      devOpsDeployments,
     ] = await Promise.all([
       WorkspaceMemberModel.countDocuments({ workspaceId, status: 'active' }),
       ProjectModel.countDocuments({ workspaceId, status: 'active' }),
@@ -138,24 +102,8 @@ export class UsageService {
       AutomationRuleModel.countDocuments({ workspaceId }),
       ApiKeyModel.countDocuments({ workspaceId, revokedAt: null }),
       WebhookEndpointModel.countDocuments({ workspaceId }),
-      GoalModel.countDocuments({ workspaceId, archived: false }),
-      InitiativeModel.countDocuments({ workspaceId, archived: false }),
-      PortfolioModel.countDocuments({ workspaceId, archived: false }),
-      CustomFieldDefinitionModel.countDocuments({ workspaceId, archived: false }),
-      TaskTypeModel.countDocuments({ workspaceId, archived: false }),
-      WorkflowModel.countDocuments({ workspaceId, archived: false }),
-      IntakeFormModel.countDocuments({ workspaceId, active: true }),
-      TemplateModel.countDocuments({ workspaceId, archived: false }),
       DocumentSpaceModel.countDocuments({ workspaceId, archived: false }),
       DocumentPageModel.countDocuments({ workspaceId, status: { $ne: 'deleted' } }),
-      ResourceProfileModel.countDocuments({ workspaceId, active: true }),
-      CrmAccountModel.countDocuments({ workspaceId, archived: false }),
-      CrmContactModel.countDocuments({ workspaceId, archived: false }),
-      CrmLeadModel.countDocuments({ workspaceId, archived: false }),
-      CrmDealModel.countDocuments({ workspaceId, archived: false }),
-      DevOpsRepositoryModel.countDocuments({ workspaceId, status: 'active' }),
-      DevOpsPipelineRunModel.countDocuments({ workspaceId }),
-      DevOpsDeploymentModel.countDocuments({ workspaceId }),
     ]);
 
     const counters = await UsageCounterModel.find({ workspaceId }).lean().exec();
@@ -166,29 +114,12 @@ export class UsageService {
       boards,
       tasks,
       storageBytes: storage[0]?.total ?? 0,
-      aiRequests: tracked.aiRequests ?? 0,
       automations,
       apiKeys,
       webhooks,
       reportExports: tracked.reportExports ?? 0,
-      goals,
-      initiatives,
-      portfolios,
-      customFields,
-      taskTypes,
-      workflows,
-      activeForms,
-      templates,
       documentSpaces,
       documentPages,
-      resourceProfiles,
-      crmAccounts,
-      crmContacts,
-      crmLeads,
-      crmDeals,
-      devOpsRepositories,
-      devOpsPipelines,
-      devOpsDeployments,
     };
   }
 }
