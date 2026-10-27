@@ -70,6 +70,7 @@ Use the root `vercel.json` from the monorepo root:
   - `NEXT_PUBLIC_SOCKET_URL=https://<railway-api-domain>`
 
 If configuring through the Vercel UI, keep the project root at the repository root so workspace packages resolve consistently.
+The root `package.json` declares the same Next.js version as `apps/web/package.json` so Vercel can detect the framework from the configured project root.
 
 Cloudinary images are rendered from URLs returned by the API. If Next Image optimization is introduced later, add the Cloudinary domain to `next.config.ts`.
 
